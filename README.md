@@ -10,7 +10,7 @@ A self-hosted, zero-cost, AI-powered data management and analytics platform. Upl
 - **Automatic Processing** — Files are detected, parsed, profiled, and stored in the optimal database engine
 - **Smart Dashboards** — Auto-generated charts and insights, plus a drag-and-drop dashboard builder
 - **AI Chat Assistant** — Ask questions about your data in natural language; get SQL queries, charts, and answers
-- **Multi-Agent Architecture** — 20 specialized AI agents handle detection, parsing, analytics, SQL, RAG, and more
+- **Multi-Agent Architecture** — 20 specialized AI agents with input/output contracts, execution metrics, dispatch timeouts, and dead letter tracking
 - **File Manager** — Visual file browser with thumbnails, tags, search, and database/archive browsing
 - **Notes System** — Markdown notes with auto-save, linked to files or standalone
 - **Export** — Export data as CSV, JSON, XLSX, Markdown
@@ -118,9 +118,9 @@ GET  /api/health                 → Same (alias)
 
 #### Chat (Streaming SSE)
 ```
-POST /api/chat/chat              → Stream AI chat response
-     Body: { message, user_id, context_file_id?, conversation_history[] }
-     Response: SSE stream of { content: "..." } chunks
+POST /api/chat/chat              → Stream AI chat response via orchestrator pipeline
+     Body: { message, user_id, context_file_id?, context_id?, conversation_history[] }
+     Response: SSE stream of { content, intent?, context_id? } chunks
 ```
 
 #### File Processing Pipeline
@@ -130,10 +130,12 @@ POST /api/files/process          → Trigger async file processing
 GET  /api/files/status/{file_id} → Get processing status
 ```
 
-#### Agent Management
+#### Agent Management & Observability
 ```
-GET  /api/agents/                → List all agents with status
-GET  /api/agents/{name}          → Agent detail (circuit state, token budget)
+GET  /api/agents/                → List all agents with status and execution metrics
+GET  /api/agents/metrics         → Aggregated metrics for all agents
+GET  /api/agents/bus-stats       → Message bus stats + recent dead letters
+GET  /api/agents/{name}          → Agent detail (contract, circuit state, token budget, metrics)
 POST /api/agents/reset-circuit   → Reset circuit breaker for agent
 ```
 
@@ -242,7 +244,7 @@ Each uploaded tabular file gets its own table: `file_{file_id}` with all columns
 ## Agent Orchestration Architecture
 
 ```
-User Request
+User Request (Chat / Pipeline API)
      │
      ▼
 ┌─────────────┐     LLM-powered intent       ┌──────────────────┐
@@ -250,7 +252,8 @@ User Request
 │   Agent      │◄───execution plan JSON───────│                  │
 └──────┬──────┘                               └──────────────────┘
        │
-       │ Execution Plan (parallel groups)
+       │  Session context (ContextStore)
+       │  + Execution Plan (parallel groups)
        │
        ├── Group 0 (parallel) ──┬── validation_security
        │                        └── file_detection
@@ -261,13 +264,23 @@ User Request
        │                        └── analytics
        │
        └── Group 3 (sequential) ── visualization / storage_router
+       │
+       ▼
+  Result Synthesis (LLM summarizes agent results)
+       │
+       ▼
+  Streamed response to client (SSE)
 ```
+
+All requests — including chat — flow through the orchestrator pipeline. The orchestrator determines intent, builds an execution plan, dispatches agents in parallel groups, and synthesizes results via LLM.
 
 ### 20 Specialized Agents
 
+Each agent declares an **AgentContract** specifying its required/optional inputs and guaranteed output keys. The base class validates contracts at dispatch time, returning clear error messages when required inputs are missing.
+
 | Agent | Purpose | Uses LLM? |
 |-------|---------|-----------|
-| orchestrator | LLM-powered intent parsing + execution planning | Yes |
+| orchestrator | LLM-powered intent parsing, session context management, execution planning | Yes |
 | file_detection | Magic bytes + extension-based file type detection | No |
 | tabular_processor | CSV, XLSX, Parquet, TSV, ODS parsing | No |
 | document_processor | PDF, DOCX, PPTX, TXT, HTML text extraction | No |
@@ -286,15 +299,16 @@ User Request
 | cross_modal | Cross-format queries | Yes |
 | export_agent | Data export (CSV, JSON, Markdown) | No |
 | validation_security | File security validation + integrity hashing | No |
-| scheduler | Recurring task management | No |
+| scheduler | Recurring task execution with background asyncio loops | No |
 
 ### Infrastructure
 
-- **Message Bus** — Async pub/sub with priority queuing for inter-agent communication
+- **Message Bus** — Async pub/sub with priority queuing, TTL enforcement, and a dead letter queue for undeliverable/expired messages
 - **Circuit Breaker** — Per-agent fault tolerance (5 failures → open → 60s recovery)
 - **Token Budget Manager** — Per-agent and global token limits (rolling 1-hour window)
-- **Agent Registry** — Central registration with capability-based discovery
-- **Context Store** — Per-user workspace state shared between agents
+- **Agent Registry** — Central registration with capability-based discovery, per-agent execution metrics (call counts, avg/p95 latency, success rate, timeout tracking), and configurable dispatch timeouts
+- **Context Store** — Per-session workspace state (tables, relationships, file catalog) shared across agents through the orchestrator pipeline
+- **Agent Contracts** — Declarative input/output schemas on each agent for pipeline validation and introspection
 
 ## Project Structure
 
