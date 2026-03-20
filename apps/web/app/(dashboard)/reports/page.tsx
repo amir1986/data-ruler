@@ -546,19 +546,16 @@ export default function ReportsPage() {
           </DialogHeader>
           {activeReport && activeReport.content && (
             <div className="space-y-6">
-              {/* Summary */}
-              {(activeReport.content as Record<string, unknown>).summary && (
+              {(activeReport.content as Record<string, unknown>).summary ? (
                 <div className="bg-zinc-800 rounded-lg p-4">
                   <p className="text-sm text-zinc-300 leading-relaxed">
-                    {
-                      (activeReport.content as Record<string, unknown>)
-                        .summary as string
-                    }
+                    {String(
+                      (activeReport.content as Record<string, unknown>).summary
+                    )}
                   </p>
                 </div>
-              )}
+              ) : null}
 
-              {/* Sections */}
               {(
                 (activeReport.content as Record<string, unknown>)
                   .sections as Array<{ title: string; content: string }>
@@ -567,7 +564,7 @@ export default function ReportsPage() {
                   <h3 className="text-base font-semibold text-white mb-2">
                     {section.title}
                   </h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed">
+                  <p className="text-sm text-zinc-400 leading-relaxed whitespace-pre-line">
                     {section.content}
                   </p>
                 </div>

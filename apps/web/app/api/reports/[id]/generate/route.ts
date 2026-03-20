@@ -82,8 +82,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       : null;
     const readyCount = files.filter((f) => f.processing_status === 'ready').length;
     const errorCount = files.filter((f) => f.processing_status === 'error').length;
-    const categories = [...new Set(files.map((f) => f.file_category as string))];
-    const fileTypes = [...new Set(files.map((f) => f.file_type as string))];
+    const categories = Array.from(new Set(files.map((f) => f.file_category as string)));
+    const fileTypes = Array.from(new Set(files.map((f) => f.file_type as string)));
 
     const formatBytes = (bytes: number) => {
       if (bytes === 0) return '0 B';
