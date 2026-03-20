@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw new Error(data.error || 'Login failed');
     }
     const data = await res.json();
-    set({ user: data.user });
+    set({ user: data.user ?? data });
   },
 
   register: async (email, password, displayName) => {
@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw new Error(data.error || 'Registration failed');
     }
     const data = await res.json();
-    set({ user: data.user });
+    set({ user: data.user ?? data });
   },
 
   logout: async () => {
@@ -65,7 +65,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const res = await fetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
-        set({ user: data.user, loading: false });
+        set({ user: data.user ?? data, loading: false });
       } else {
         set({ user: null, loading: false });
       }

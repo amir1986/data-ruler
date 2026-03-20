@@ -110,7 +110,7 @@ export default function DashboardsPage() {
                 <div className="flex items-center gap-4 text-xs text-zinc-500 mt-auto pt-3 border-t border-zinc-800">
                   <span className="flex items-center gap-1">
                     <BarChart3 className="h-3 w-3" />
-                    {dashboard.widgets.length} widget{dashboard.widgets.length !== 1 ? 's' : ''}
+                    {(dashboard.widgets || []).length} widget{(dashboard.widgets || []).length !== 1 ? 's' : ''}
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
