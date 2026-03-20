@@ -106,6 +106,80 @@ AI_SERVICE_URL=http://localhost:8000
 
 See `.env.example` for all options.
 
+## Pages & UI
+
+### Login (`/login`)
+
+Centered authentication card on dark background. Email + password form with error handling.
+
+![Login Page](docs/screenshots/01-login.png)
+
+### Register (`/register`)
+
+Account creation form with display name, email, password (8+ chars), and link to login.
+
+![Register Page](docs/screenshots/02-register.png)
+
+### Files — List View (`/files`)
+
+Main page after login. Collapsible sidebar, drag-and-drop upload, searchable file table with status badges, quality scores, and bulk actions. Floating chat button bottom-right.
+
+![Files List View](docs/screenshots/03-files-list.png)
+
+### Files — Grid View (`/files`)
+
+Alternative card-based layout toggled via the view mode switch. Each card shows icon, name, size, and status badge.
+
+![Files Grid View](docs/screenshots/04-files-grid.png)
+
+### File Detail Modal (overlay)
+
+Opened from the file list. Shows file metadata, AI-generated summary, quality score, tags, and schema preview.
+
+![File Detail Modal](docs/screenshots/05-file-detail.png)
+
+### Dashboards (`/dashboards`)
+
+Grid of dashboard cards with "Create Dashboard" button. Cards show title, description, widget count, and last updated timestamp.
+
+![Dashboards](docs/screenshots/06-dashboards.png)
+
+### Dashboard Builder (`/dashboards/[id]`)
+
+Drag-and-drop widget grid with edit/preview toggle. Supports chart (bar, line, pie, scatter), KPI, table, and text widgets. Draggable and resizable in edit mode.
+
+![Dashboard Builder](docs/screenshots/07-dashboard-builder.png)
+
+### Notes (`/notes`)
+
+Two-panel layout. Left: searchable note list with file associations. Right: markdown editor with auto-save and delete.
+
+![Notes](docs/screenshots/08-notes.png)
+
+### Reports (`/reports`) — Coming Soon
+
+Placeholder page with report template cards. Feature under development.
+
+![Reports](docs/screenshots/09-reports.png)
+
+### Settings (`/settings`)
+
+User profile, appearance, AI model configuration, data management, and system info.
+
+![Settings](docs/screenshots/10-settings.png)
+
+### Chat Sidebar (overlay on any page)
+
+Sliding right panel. AI assistant with message input, suggested prompts, and streaming responses.
+
+![Chat Sidebar](docs/screenshots/11-chat-sidebar.png)
+
+### Command Palette (`Ctrl+K` / `Cmd+K`)
+
+Centered overlay modal with search and quick navigation. Accessible from any page.
+
+![Command Palette](docs/screenshots/12-command-palette.png)
+
 ## API Contracts
 
 ### REST API — AI Service (FastAPI, port 8000)
@@ -239,62 +313,231 @@ agent_logs (id, agent_name, task_type, latency_ms, token_count, success)
 
 Each uploaded tabular file gets its own table: `file_{file_id}` with all columns stored as TEXT for maximum compatibility. Schema inference metadata is stored in the catalog.
 
-## Agent Orchestration Architecture
+## Multi-Agent Architecture
+
+DataRuler uses 20 specialized AI agents coordinated by an LLM-powered orchestrator. This section explains how they work together.
+
+### Request Lifecycle
 
 ```
-User Request
+HTTP Request (user message, file upload, query)
      │
      ▼
-┌─────────────┐     LLM-powered intent       ┌──────────────────┐
-│ Orchestrator │────parsing + plan────────────▶│ Cloud LLM (Groq) │
-│   Agent      │◄───execution plan JSON───────│                  │
-└──────┬──────┘                               └──────────────────┘
-       │
-       │ Execution Plan (parallel groups)
-       │
-       ├── Group 0 (parallel) ──┬── validation_security
-       │                        └── file_detection
-       │
-       ├── Group 1 (sequential) ── tabular_processor / document_processor
-       │
-       ├── Group 2 (parallel) ──┬── schema_inference
-       │                        └── analytics
-       │
-       └── Group 3 (sequential) ── visualization / storage_router
+┌──────────────────┐
+│  FastAPI Router   │  /api/chat, /api/files/process, /api/pipelines/*
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐     ┌──────────────────┐
+│   Orchestrator    │────▶│  Cloud LLM (Groq)│  temperature=0.1
+│   Agent           │◄────│  json_mode=true  │  max_tokens=512
+└────────┬─────────┘     └──────────────────┘
+         │
+         │  Returns execution plan JSON:
+         │  { intent, confidence, plan: [{agent, parallel_group}], reasoning }
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│  Parallel Execution Engine                            │
+│                                                       │
+│  Group 0 ──▶ [validation_security] ──────────────────│──▶ accumulate context
+│  Group 1 ──▶ [file_detection, schema_inference]  ────│──▶ accumulate context
+│  Group 2 ──▶ [analytics, visualization]  ────────────│──▶ accumulate context
+│  Group 3 ──▶ [storage_router]  ──────────────────────│──▶ accumulate context
+│                                                       │
+│  Groups run sequentially (0→1→2→3)                    │
+│  Steps WITHIN a group run concurrently (asyncio.gather)│
+└────────┬─────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Result Synthesis │  LLM combines all agent outputs into final response
+└────────┬─────────┘
+         │
+         ▼
+    HTTP Response (streamed SSE or JSON)
 ```
+
+### Agent Communication Protocol
+
+All inter-agent communication uses the `AgentMessage` envelope:
+
+```python
+AgentMessage:
+  message_id:     UUID        # Unique message identifier
+  correlation_id: UUID        # Tracks request/reply chains
+  type:           REQUEST | RESPONSE | ERROR | STATUS
+  source_agent:   str         # Sender agent name
+  target_agent:   str         # Recipient agent name
+  priority:       LOW(0) | NORMAL(1) | HIGH(2) | CRITICAL(3)
+  payload:        dict        # Arbitrary data (input params, results, errors)
+  ttl:            int         # Time-to-live in seconds
+  created_at:     datetime    # Timestamp
+```
+
+### Message Bus
+
+The message bus provides async pub/sub with priority-based dispatch:
+
+- **Target-based routing** — Messages routed to `target_agent` via registered subscriber callbacks
+- **Priority queue** — `asyncio.PriorityQueue` dequeues highest-priority messages first
+- **Request/reply** — `correlation_id` maps to `asyncio.Future` for blocking await with timeout (default 30s)
+- **Fan-out** — Multiple subscribers can register for the same agent (all receive the message)
+- **Auto-start** — Dispatch loop starts on first subscription
+
+### Orchestrator Decision Logic
+
+The orchestrator has two paths for deciding which agents to invoke:
+
+**Path A — LLM Intent Parsing** (primary):
+1. Constructs prompt with user message + file context + schema context
+2. Calls LLM with `json_mode=True`, `temperature=0.1` (deterministic)
+3. Returns structured JSON plan
+
+**Path B — Keyword Fallback** (when LLM parsing fails):
+
+| Keywords | Intent | Agents |
+|----------|--------|--------|
+| `query`, `select`, `sql`, `count`, `average` | query_data | sql_agent |
+| `chart`, `plot`, `graph`, `visualize` | visualize | visualization |
+| `analyze`, `statistics`, `profile` | analyze_data | schema_inference + analytics → visualization |
+| `export`, `download`, `save as` | export | export_agent |
+| `relationship`, `foreign key`, `join` | find_relationships | relationship_mining |
+| `upload`, `process`, `import` | process_file | validation → detection → schema → storage |
+| _(anything else)_ | general_chat | _(direct LLM response)_ |
+
+**Execution plan JSON format:**
+```json
+{
+  "intent": "process_file",
+  "confidence": 0.95,
+  "plan": [
+    { "agent": "validation_security", "parallel_group": 0, "input_keys": ["file_id"] },
+    { "agent": "file_detection",      "parallel_group": 1, "input_keys": ["file_id"] },
+    { "agent": "schema_inference",    "parallel_group": 1, "input_keys": ["file_id"] },
+    { "agent": "storage_router",      "parallel_group": 2, "input_keys": ["file_id"] }
+  ],
+  "reasoning": "New file upload needs validation, detection, schema analysis, then storage"
+}
+```
+
+### Parallel Execution Engine
+
+Groups execute **sequentially** (group 0 finishes before group 1 starts). Steps **within** a group run **concurrently** via `asyncio.gather`:
+
+```
+accumulated_context = { ...original_request_payload }
+
+for group_id in sorted(groups):
+    steps = groups[group_id]
+
+    if len(steps) == 1:
+        result = await dispatch_to_agent(steps[0], accumulated_context)
+    else:
+        results = await asyncio.gather(*[
+            dispatch_to_agent(step, accumulated_context) for step in steps
+        ])
+
+    accumulated_context.update(results)  # Next group sees previous outputs
+```
+
+Each group's results merge into the accumulated context, so later agents can use earlier outputs (e.g., schema_inference uses file_detection's results).
+
+### Circuit Breaker
+
+Per-agent fault tolerance prevents cascading failures:
+
+```
+    CLOSED (normal operation)
+        │
+        │ failure_count >= 5 (within 10-min window)
+        ▼
+      OPEN (all calls rejected immediately)
+        │
+        │ 60 seconds elapsed
+        ▼
+    HALF_OPEN (allow exactly 1 probe request)
+       ╱ ╲
+  success   failure
+     │         │
+     ▼         ▼
+   CLOSED     OPEN
+```
+
+- **Threshold**: 5 failures within a 10-minute rolling window
+- **Recovery timeout**: 60 seconds before probing
+- **Integration**: Checked at dispatch time — if circuit is open, agent is skipped with a warning
+
+### Token Budget Manager
+
+Two-level budget model prevents runaway LLM costs:
+
+```
+Global Budget: 1,000,000 tokens/hour (all agents combined)
+├── orchestrator:        200,000 tokens/hour
+├── schema_inference:    200,000 tokens/hour
+├── analytics:           200,000 tokens/hour
+├── sql_agent:           200,000 tokens/hour
+├── visualization:       200,000 tokens/hour
+├── document_qa:         200,000 tokens/hour
+└── (other agents):      200,000 tokens/hour each
+```
+
+- **Rolling window**: 1-hour sliding window with lazy pruning
+- **Pre-check**: `has_budget(agent_name)` called before dispatch — if exhausted, agent is skipped
+- **Post-record**: After agent completes, token usage recorded (prompt + completion split)
+- **Monitoring**: `usage_summary()` returns per-agent token consumption
+
+### Context Store
+
+Per-user shared state enables agents to collaborate without direct coupling:
+
+```python
+AgentContext:
+  tables: dict[str, TableInfo]           # Registered dataframes/tables
+  relationships: list[Relationship]       # Discovered table joins
+  file_catalog: dict[UUID, dict]          # File metadata
+  processing_tasks: dict[UUID, dict]      # Long-running task state
+  cache: dict[str, Any]                   # General-purpose KV cache
+```
+
+- **Table Registry** — Agents register imported tables with schema info (`register_table()`)
+- **Relationship Graph** — `relationship_mining` stores discovered foreign keys with confidence scores
+- **File Catalog** — Shared file metadata accessible to all agents
+- **Cache** — Arbitrary key-value store for intermediate results (e.g., parsed schemas, embeddings)
+
+### Agent Registry
+
+Central registration point with capability-based discovery:
+
+- **Register**: `registry.register(agent_name, agent_instance, capabilities=[...])` — subscribes to message bus
+- **Dispatch**: `registry.dispatch(message)` — circuit breaker check → budget check → `agent.process()` → record metrics
+- **Discovery**: `registry.get_by_capability("parse_tabular")` — find agents by capability tag
 
 ### 20 Specialized Agents
 
-| Agent | Purpose | Uses LLM? |
-|-------|---------|-----------|
-| orchestrator | LLM-powered intent parsing + execution planning | Yes |
-| file_detection | Magic bytes + extension-based file type detection | No |
-| tabular_processor | CSV, XLSX, Parquet, TSV, ODS parsing | No |
-| document_processor | PDF, DOCX, PPTX, TXT, HTML text extraction | No |
-| database_importer | SQLite, DuckDB, SQL dump importing | No |
-| media_processor | Image metadata + thumbnail generation | No |
-| archive_processor | ZIP, TAR, GZIP extraction (safe) | No |
-| structured_data | JSON, XML, YAML, TOML, INI parsing | No |
-| specialized_format | GeoJSON, Shapefile, HDF5, NetCDF | No |
-| schema_inference | Column type inference + quality scoring | Yes |
-| relationship_mining | Foreign key + joinable column discovery | Yes |
-| storage_router | Route data to SQLite/DuckDB/filesystem | No |
-| analytics | Statistical analysis + anomaly detection | Yes |
-| visualization | ECharts config generation | Yes |
-| sql_agent | Natural language → SQL generation + execution | Yes |
-| document_qa | RAG-based Q&A over documents | Yes |
-| cross_modal | Cross-format queries | Yes |
-| export_agent | Data export (CSV, JSON, Markdown) | No |
-| validation_security | File security validation + integrity hashing | No |
-| scheduler | Recurring task management | No |
-
-### Infrastructure
-
-- **Message Bus** — Async pub/sub with priority queuing for inter-agent communication
-- **Circuit Breaker** — Per-agent fault tolerance (5 failures → open → 60s recovery)
-- **Token Budget Manager** — Per-agent and global token limits (rolling 1-hour window)
-- **Agent Registry** — Central registration with capability-based discovery
-- **Context Store** — Per-user workspace state shared between agents
+| Agent | Purpose | Uses LLM? | Capabilities |
+|-------|---------|-----------|-------------|
+| **orchestrator** | LLM-powered intent parsing + execution planning | Yes | orchestrate, plan |
+| **file_detection** | Magic bytes + extension-based file type detection | No | detect, classify |
+| **tabular_processor** | CSV, XLSX, Parquet, TSV, ODS parsing + import | No | parse_tabular |
+| **document_processor** | PDF, DOCX, PPTX, TXT, HTML text extraction | No | parse_document |
+| **database_importer** | SQLite, DuckDB, SQL dump importing | No | import_database |
+| **media_processor** | Image metadata, thumbnails, audio/video info | No | process_media |
+| **archive_processor** | ZIP, TAR, GZIP extraction (safe, with limits) | No | extract_archive |
+| **structured_data** | JSON, XML, YAML, TOML, INI parsing + flattening | No | parse_structured |
+| **specialized_format** | GeoJSON, Shapefile, HDF5, NetCDF processing | No | parse_specialized |
+| **schema_inference** | Column type inference + data quality scoring | Yes | infer_schema, profile |
+| **relationship_mining** | Foreign key + joinable column discovery | Yes | find_relationships |
+| **storage_router** | Route data to SQLite/DuckDB/filesystem | No | store, route |
+| **analytics** | Statistical analysis + anomaly detection | Yes | analyze, statistics |
+| **visualization** | ECharts config generation from data | Yes | visualize, chart |
+| **sql_agent** | Natural language → SQL generation + execution | Yes | query, sql |
+| **document_qa** | RAG-based Q&A over extracted document text | Yes | qa, search |
+| **cross_modal** | Cross-format queries spanning multiple files | Yes | cross_query |
+| **export_agent** | Data export (CSV, JSON, XLSX, Markdown) | No | export |
+| **validation_security** | File security validation + integrity hashing | No | validate, security |
+| **scheduler** | Recurring task management + cron scheduling | No | schedule |
 
 ## Project Structure
 
