@@ -10,7 +10,7 @@ A self-hosted, zero-cost, AI-powered data management and analytics platform. Upl
 - **Automatic Processing** — Files are detected, parsed, profiled, and stored in the optimal database engine
 - **Smart Dashboards** — Auto-generated charts and insights, plus a drag-and-drop dashboard builder
 - **AI Chat Assistant** — Ask questions about your data in natural language; get SQL queries, charts, and answers
-- **Multi-Agent Architecture** — 20 specialized AI agents handle detection, parsing, analytics, SQL, RAG, and more
+- **Multi-Agent Architecture** — 20 specialized AI agents with input/output contracts, execution metrics, dispatch timeouts, and dead letter tracking
 - **File Manager** — Visual file browser with thumbnails, tags, search, and database/archive browsing
 - **Notes System** — Markdown notes with auto-save, linked to files or standalone
 - **Export** — Export data as CSV, JSON, XLSX, Markdown
@@ -192,9 +192,9 @@ GET  /api/health                 → Same (alias)
 
 #### Chat (Streaming SSE)
 ```
-POST /api/chat/chat              → Stream AI chat response
-     Body: { message, user_id, context_file_id?, conversation_history[] }
-     Response: SSE stream of { content: "..." } chunks
+POST /api/chat/chat              → Stream AI chat response via orchestrator pipeline
+     Body: { message, user_id, context_file_id?, context_id?, conversation_history[] }
+     Response: SSE stream of { content, intent?, context_id? } chunks
 ```
 
 #### File Processing Pipeline
@@ -204,10 +204,12 @@ POST /api/files/process          → Trigger async file processing
 GET  /api/files/status/{file_id} → Get processing status
 ```
 
-#### Agent Management
+#### Agent Management & Observability
 ```
-GET  /api/agents/                → List all agents with status
-GET  /api/agents/{name}          → Agent detail (circuit state, token budget)
+GET  /api/agents/                → List all agents with status and execution metrics
+GET  /api/agents/metrics         → Aggregated metrics for all agents
+GET  /api/agents/bus-stats       → Message bus stats + recent dead letters
+GET  /api/agents/{name}          → Agent detail (contract, circuit state, token budget, metrics)
 POST /api/agents/reset-circuit   → Reset circuit breaker for agent
 ```
 
@@ -319,6 +321,8 @@ DataRuler uses 20 specialized AI agents coordinated by an LLM-powered orchestrat
 
 ### Request Lifecycle
 
+All requests — including chat — flow through the orchestrator pipeline. The orchestrator determines intent, builds an execution plan, dispatches agents in parallel groups with session context, and synthesizes results via LLM.
+
 ```
 HTTP Request (user message, file upload, query)
      │
@@ -333,12 +337,13 @@ HTTP Request (user message, file upload, query)
 │   Agent           │◄────│  json_mode=true  │  max_tokens=512
 └────────┬─────────┘     └──────────────────┘
          │
-         │  Returns execution plan JSON:
+         │  Session context (ContextStore)
+         │  + Execution plan JSON:
          │  { intent, confidence, plan: [{agent, parallel_group}], reasoning }
          │
          ▼
 ┌──────────────────────────────────────────────────────┐
-│  Parallel Execution Engine                            │
+│  Parallel Execution Engine (with dispatch timeouts)   │
 │                                                       │
 │  Group 0 ──▶ [validation_security] ──────────────────│──▶ accumulate context
 │  Group 1 ──▶ [file_detection, schema_inference]  ────│──▶ accumulate context
@@ -347,6 +352,7 @@ HTTP Request (user message, file upload, query)
 │                                                       │
 │  Groups run sequentially (0→1→2→3)                    │
 │  Steps WITHIN a group run concurrently (asyncio.gather)│
+│  Failed agents don't block other agents in the group  │
 └────────┬─────────────────────────────────────────────┘
          │
          ▼
@@ -375,6 +381,19 @@ AgentMessage:
   created_at:     datetime    # Timestamp
 ```
 
+### Agent Contracts
+
+Each agent declares an `AgentContract` specifying its required/optional inputs and guaranteed output keys. The base class validates contracts at dispatch time, returning clear error messages when required inputs are missing.
+
+```python
+AgentContract:
+  required_inputs: tuple[str, ...]   # Keys the agent expects in the payload
+  optional_inputs: tuple[str, ...]   # Keys the agent can use but doesn't require
+  output_keys:     tuple[str, ...]   # Keys guaranteed in the response on success
+```
+
+Contracts are exposed via `GET /api/agents/{name}` and the `agent.info()` method, enabling tooling and the orchestrator to validate pipelines before execution.
+
 ### Message Bus
 
 The message bus provides async pub/sub with priority-based dispatch:
@@ -383,6 +402,8 @@ The message bus provides async pub/sub with priority-based dispatch:
 - **Priority queue** — `asyncio.PriorityQueue` dequeues highest-priority messages first
 - **Request/reply** — `correlation_id` maps to `asyncio.Future` for blocking await with timeout (default 30s)
 - **Fan-out** — Multiple subscribers can register for the same agent (all receive the message)
+- **TTL enforcement** — Messages past their TTL are moved to the dead letter queue instead of being delivered
+- **Dead letter queue** — Undeliverable and expired messages are captured with reason codes for operational visibility (`GET /api/agents/bus-stats`)
 - **Auto-start** — Dispatch loop starts on first subscription
 
 ### Orchestrator Decision Logic
@@ -390,7 +411,7 @@ The message bus provides async pub/sub with priority-based dispatch:
 The orchestrator has two paths for deciding which agents to invoke:
 
 **Path A — LLM Intent Parsing** (primary):
-1. Constructs prompt with user message + file context + schema context
+1. Constructs prompt with user message + file context + schema context + session state
 2. Calls LLM with `json_mode=True`, `temperature=0.1` (deterministic)
 3. Returns structured JSON plan
 
@@ -399,12 +420,12 @@ The orchestrator has two paths for deciding which agents to invoke:
 | Keywords | Intent | Agents |
 |----------|--------|--------|
 | `query`, `select`, `sql`, `count`, `average` | query_data | sql_agent |
-| `chart`, `plot`, `graph`, `visualize` | visualize | visualization |
+| `chart`, `plot`, `graph`, `visualize` | visualize | analytics → visualization |
 | `analyze`, `statistics`, `profile` | analyze_data | schema_inference + analytics → visualization |
 | `export`, `download`, `save as` | export | export_agent |
 | `relationship`, `foreign key`, `join` | find_relationships | relationship_mining |
-| `upload`, `process`, `import` | process_file | validation → detection → schema → storage |
-| _(anything else)_ | general_chat | _(direct LLM response)_ |
+| `upload`, `process`, `import` | process_file | validation + detection → schema → storage |
+| _(anything else)_ | general_chat | document_qa |
 
 **Execution plan JSON format:**
 ```json
@@ -413,7 +434,7 @@ The orchestrator has two paths for deciding which agents to invoke:
   "confidence": 0.95,
   "plan": [
     { "agent": "validation_security", "parallel_group": 0, "input_keys": ["file_id"] },
-    { "agent": "file_detection",      "parallel_group": 1, "input_keys": ["file_id"] },
+    { "agent": "file_detection",      "parallel_group": 0, "input_keys": ["file_id"] },
     { "agent": "schema_inference",    "parallel_group": 1, "input_keys": ["file_id"] },
     { "agent": "storage_router",      "parallel_group": 2, "input_keys": ["file_id"] }
   ],
@@ -423,10 +444,10 @@ The orchestrator has two paths for deciding which agents to invoke:
 
 ### Parallel Execution Engine
 
-Groups execute **sequentially** (group 0 finishes before group 1 starts). Steps **within** a group run **concurrently** via `asyncio.gather`:
+Groups execute **sequentially** (group 0 finishes before group 1 starts). Steps **within** a group run **concurrently** via `asyncio.gather`. Failed agents within a parallel group do not block other agents in the same group.
 
 ```
-accumulated_context = { ...original_request_payload }
+accumulated_context = { ...original_request_payload, _session_tables, _session_relationship_count }
 
 for group_id in sorted(groups):
     steps = groups[group_id]
@@ -438,10 +459,12 @@ for group_id in sorted(groups):
             dispatch_to_agent(step, accumulated_context) for step in steps
         ])
 
-    accumulated_context.update(results)  # Next group sees previous outputs
+    # Only completed results merge into context; errors are tracked but don't corrupt state
+    accumulated_context.update(successful_results)
+    session_context.cache_set(f"last_result:{agent}", data)
 ```
 
-Each group's results merge into the accumulated context, so later agents can use earlier outputs (e.g., schema_inference uses file_detection's results).
+Each group's results merge into the accumulated context, so later agents can use earlier outputs (e.g., schema_inference uses file_detection's results). Results are also persisted into the session context for cross-request sharing.
 
 ### Circuit Breaker
 
@@ -473,14 +496,14 @@ Per-agent fault tolerance prevents cascading failures:
 Two-level budget model prevents runaway LLM costs:
 
 ```
-Global Budget: 1,000,000 tokens/hour (all agents combined)
-├── orchestrator:        200,000 tokens/hour
-├── schema_inference:    200,000 tokens/hour
-├── analytics:           200,000 tokens/hour
-├── sql_agent:           200,000 tokens/hour
-├── visualization:       200,000 tokens/hour
-├── document_qa:         200,000 tokens/hour
-└── (other agents):      200,000 tokens/hour each
+Global Budget: 2,000,000 tokens/hour (all agents combined)
+├── orchestrator:        400,000 tokens/hour
+├── schema_inference:    400,000 tokens/hour
+├── analytics:           400,000 tokens/hour
+├── sql_agent:           400,000 tokens/hour
+├── visualization:       400,000 tokens/hour
+├── document_qa:         400,000 tokens/hour
+└── (other agents):      400,000 tokens/hour each
 ```
 
 - **Rolling window**: 1-hour sliding window with lazy pruning
@@ -490,7 +513,7 @@ Global Budget: 1,000,000 tokens/hour (all agents combined)
 
 ### Context Store
 
-Per-user shared state enables agents to collaborate without direct coupling:
+Per-session shared state enables agents to collaborate without direct coupling. The orchestrator creates/resolves session contexts automatically and passes them through the pipeline.
 
 ```python
 AgentContext:
@@ -504,21 +527,23 @@ AgentContext:
 - **Table Registry** — Agents register imported tables with schema info (`register_table()`)
 - **Relationship Graph** — `relationship_mining` stores discovered foreign keys with confidence scores
 - **File Catalog** — Shared file metadata accessible to all agents
-- **Cache** — Arbitrary key-value store for intermediate results (e.g., parsed schemas, embeddings)
+- **Cache** — Arbitrary key-value store for intermediate results (e.g., parsed schemas, last agent results)
 
 ### Agent Registry
 
-Central registration point with capability-based discovery:
+Central registration point with capability-based discovery, execution metrics, and dispatch timeouts:
 
-- **Register**: `registry.register(agent_name, agent_instance, capabilities=[...])` — subscribes to message bus
-- **Dispatch**: `registry.dispatch(message)` — circuit breaker check → budget check → `agent.process()` → record metrics
+- **Register**: `registry.register(agent, capabilities=[...])` — subscribes to message bus
+- **Dispatch**: `registry.dispatch(message, timeout=120)` — circuit breaker check → budget check → `asyncio.wait_for(agent.process(), timeout)` → record metrics
 - **Discovery**: `registry.get_by_capability("parse_tabular")` — find agents by capability tag
+- **Metrics**: Per-agent call counts, avg/p95 latency, success rate, timeout tracking (`GET /api/agents/metrics`)
+- **Timeouts**: Configurable per-dispatch timeout (default 120s) prevents hung agents from blocking pipelines
 
 ### 20 Specialized Agents
 
 | Agent | Purpose | Uses LLM? | Capabilities |
 |-------|---------|-----------|-------------|
-| **orchestrator** | LLM-powered intent parsing + execution planning | Yes | orchestrate, plan |
+| **orchestrator** | LLM-powered intent parsing, session context management, execution planning | Yes | orchestrate, plan |
 | **file_detection** | Magic bytes + extension-based file type detection | No | detect, classify |
 | **tabular_processor** | CSV, XLSX, Parquet, TSV, ODS parsing + import | No | parse_tabular |
 | **document_processor** | PDF, DOCX, PPTX, TXT, HTML text extraction | No | parse_document |
@@ -537,7 +562,7 @@ Central registration point with capability-based discovery:
 | **cross_modal** | Cross-format queries spanning multiple files | Yes | cross_query |
 | **export_agent** | Data export (CSV, JSON, XLSX, Markdown) | No | export |
 | **validation_security** | File security validation + integrity hashing | No | validate, security |
-| **scheduler** | Recurring task management + cron scheduling | No | schedule |
+| **scheduler** | Recurring task execution with background asyncio loops | No | schedule |
 
 ## Project Structure
 

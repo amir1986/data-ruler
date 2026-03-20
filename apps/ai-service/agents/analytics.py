@@ -8,7 +8,7 @@ import os
 import sqlite3
 from typing import Any
 
-from core.agent_base import AgentBase
+from core.agent_base import AgentBase, AgentContract
 from models.schemas import AgentMessage
 from services.ollama_client import chat_completion
 
@@ -44,6 +44,10 @@ class AnalyticsAgent(AgentBase):
         super().__init__(
             agent_name="analytics",
             description="Performs statistical analysis, anomaly/trend detection, correlation analysis, and narrative generation via cloud LLM.",
+            contract=AgentContract(
+                optional_inputs=("data", "file_id", "user_id", "table_name"),
+                output_keys=("local_statistics", "llm_analysis", "row_count", "column_count"),
+            ),
         )
 
     async def handle(self, message: AgentMessage) -> dict[str, Any]:
