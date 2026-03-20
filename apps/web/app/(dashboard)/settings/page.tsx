@@ -86,7 +86,7 @@ export default function SettingsPage() {
   };
 
   const handleClearCache = () => {
-    if (confirm('Clear all cached data? This cannot be undone.')) {
+    if (confirm(t.settings.clearCacheConfirm)) {
       // Clear local storage and caches
       localStorage.clear();
       if ('caches' in window) {

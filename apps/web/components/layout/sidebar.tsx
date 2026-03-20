@@ -103,7 +103,7 @@ export function Sidebar({
           <Ruler className="h-6 w-6 shrink-0 text-electric" />
           {!collapsed && (
             <span className="text-lg font-semibold tracking-tight">
-              DataRuler
+              {t.appName}
             </span>
           )}
         </div>

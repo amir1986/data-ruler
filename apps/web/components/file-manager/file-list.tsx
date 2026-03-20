@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useFileStore, type FileItem } from '@/stores/file-store';
 import { useChatStore } from '@/stores/chat-store';
+import { useLanguageStore } from '@/stores/language-store';
 import { formatDistanceToNow } from 'date-fns';
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
@@ -57,13 +58,14 @@ interface FileRowProps {
 
 function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowProps) {
   const Icon = CATEGORY_ICONS[file.file_category] || FileQuestion;
+  const { t } = useLanguageStore();
   const [showMenu, setShowMenu] = React.useState(false);
 
   return (
     <div
       className={`
         flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 hover:bg-zinc-800/30 transition cursor-pointer
-        ${isSelected ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''}
+        ${isSelected ? 'bg-blue-500/10 border-s-2 border-s-blue-500' : ''}
       `}
       onClick={onSelect}
     >
@@ -82,7 +84,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
           <span className="text-xs text-zinc-500 uppercase">{file.file_type}</span>
           <span className="text-xs text-zinc-500">{formatSize(file.size_bytes)}</span>
           {file.row_count && (
-            <span className="text-xs text-zinc-500">{file.row_count.toLocaleString()} rows</span>
+            <span className="text-xs text-zinc-500">{file.row_count.toLocaleString()} {t.files.rows.toLowerCase()}</span>
           )}
           <span className="text-xs text-zinc-600">
             {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
@@ -127,7 +129,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
           <MoreVertical className="w-4 h-4" />
         </button>
         {showMenu && (
-          <div className="absolute right-0 top-8 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[160px]">
+          <div className="absolute end-0 top-8 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[160px]">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -135,7 +137,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
               }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition"
             >
-              <Eye className="w-4 h-4" /> View Details
+              <Eye className="w-4 h-4" /> {t.files.viewDetails}
             </button>
             <button
               onClick={(e) => {
@@ -145,7 +147,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
               }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition"
             >
-              <MessageSquare className="w-4 h-4" /> Add to Chat
+              <MessageSquare className="w-4 h-4" /> {t.files.addToChat}
             </button>
             <button
               onClick={(e) => {
@@ -154,7 +156,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
               }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition"
             >
-              <RefreshCw className="w-4 h-4" /> Reprocess
+              <RefreshCw className="w-4 h-4" /> {t.files.reprocess}
             </button>
             <hr className="border-zinc-700 my-1" />
             <button
@@ -165,7 +167,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
               }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
             >
-              <Trash2 className="w-4 h-4" /> Delete
+              <Trash2 className="w-4 h-4" /> {t.delete}
             </button>
           </div>
         )}
@@ -177,6 +179,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
 export function FileList() {
   const { files, selectedFiles, toggleSelect, deleteFile, loading } = useFileStore();
   const { setContextFile, setOpen } = useChatStore();
+  const { t } = useLanguageStore();
 
   if (loading) {
     return (
@@ -192,8 +195,8 @@ export function FileList() {
     return (
       <div className="text-center py-16">
         <FileQuestion className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-        <p className="text-zinc-400 text-sm">No files uploaded yet</p>
-        <p className="text-zinc-600 text-xs mt-1">Drop files above or click to upload</p>
+        <p className="text-zinc-400 text-sm">{t.files.noFilesYet}</p>
+        <p className="text-zinc-600 text-xs mt-1">{t.files.dropOrClick}</p>
       </div>
     );
   }
@@ -201,9 +204,9 @@ export function FileList() {
   return (
     <div className="border border-zinc-800 rounded-lg overflow-hidden">
       <div className="flex items-center gap-4 px-4 py-2 bg-zinc-900/70 border-b border-zinc-800 text-xs text-zinc-500 uppercase tracking-wider">
-        <span className="flex-1">Name</span>
-        <span className="w-16 text-right">Quality</span>
-        <span className="w-20">Tags</span>
+        <span className="flex-1">{t.files.name}</span>
+        <span className="w-16 text-end">{t.files.quality}</span>
+        <span className="w-20">{t.files.tags}</span>
         <span className="w-8"></span>
       </div>
       {files.map((file) => (

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Save, Trash2 } from 'lucide-react';
 import { useNotesStore, type Note } from '@/stores/notes-store';
+import { useLanguageStore } from '@/stores/language-store';
 
 interface NoteEditorProps {
   note: Note;
@@ -10,6 +11,7 @@ interface NoteEditorProps {
 
 export function NoteEditor({ note }: NoteEditorProps) {
   const { updateNote, deleteNote, saving } = useNotesStore();
+  const { t } = useLanguageStore();
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
 
@@ -41,12 +43,12 @@ export function NoteEditor({ note }: NoteEditorProps) {
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-zinc-500" />
           <span className="text-xs text-zinc-500">
-            {saving ? 'Saving...' : 'Saved'}
+            {saving ? t.notes.saving : t.notes.saved}
           </span>
         </div>
         <button
           onClick={() => {
-            if (confirm('Delete this note?')) {
+            if (confirm(t.notes.deleteNote)) {
               deleteNote(note.id);
             }
           }}
@@ -62,7 +64,7 @@ export function NoteEditor({ note }: NoteEditorProps) {
         value={title}
         onChange={(e) => handleTitleChange(e.target.value)}
         className="px-6 py-4 text-2xl font-bold text-white bg-transparent border-none outline-none placeholder-zinc-600"
-        placeholder="Note title..."
+        placeholder={t.notes.titlePlaceholder}
       />
 
       {/* Content */}
@@ -70,14 +72,14 @@ export function NoteEditor({ note }: NoteEditorProps) {
         value={content}
         onChange={(e) => handleContentChange(e.target.value)}
         className="flex-1 px-6 py-2 text-sm text-zinc-300 bg-transparent border-none outline-none resize-none placeholder-zinc-600 leading-relaxed font-mono"
-        placeholder="Start writing... (Markdown supported)"
+        placeholder={t.notes.contentPlaceholder}
       />
 
       {/* Footer */}
       {note.file_id && (
         <div className="px-6 py-2 border-t border-zinc-800">
           <span className="text-xs text-zinc-500">
-            Linked to file: {note.file_id}
+            {t.notes.linkedToFile}: {note.file_id}
           </span>
         </div>
       )}

@@ -5,6 +5,7 @@ import {
   Database, Table2, ChevronRight, ChevronDown, Eye, Key, Hash,
   Type, Calendar, ToggleLeft,
 } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language-store';
 
 interface Column {
   name: string;
@@ -49,6 +50,7 @@ function getTypeIcon(type: string): React.ElementType {
 }
 
 export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: DatabaseBrowserProps) {
+  const { t } = useLanguageStore();
   const [tables, setTables] = useState<TableInfo[]>(initialTables || []);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -110,12 +112,12 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
         <Database className="w-4 h-4 text-blue-400" />
         <span className="text-sm font-medium text-zinc-200 truncate">{fileName}</span>
-        <span className="text-xs text-zinc-500">{tables.length} tables</span>
+        <span className="text-xs text-zinc-500">{tables.length} {t.database.tables}</span>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Table Tree */}
-        <div className="w-64 border-r border-zinc-800 overflow-y-auto">
+        <div className="w-64 border-e border-zinc-800 overflow-y-auto">
           {tables.map((table) => (
             <div key={table.name}>
               <button
@@ -128,12 +130,12 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
                 )}
                 <Table2 className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-zinc-300 truncate flex-1 text-left">{table.name}</span>
+                <span className="text-zinc-300 truncate flex-1 text-start">{table.name}</span>
                 <span className="text-xs text-zinc-600">{table.row_count}</span>
               </button>
 
               {expandedTables.has(table.name) && (
-                <div className="ml-8 border-l border-zinc-800">
+                <div className="ms-8 border-s border-zinc-800">
                   {table.columns.map((col) => {
                     const ColIcon = getTypeIcon(col.type);
                     return (
@@ -144,7 +146,7 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
                           <ColIcon className="w-3 h-3 text-zinc-600" />
                         )}
                         <span className="text-zinc-400 truncate">{col.name}</span>
-                        <span className="text-zinc-600 ml-auto">{col.type}</span>
+                        <span className="text-zinc-600 ms-auto">{col.type}</span>
                       </div>
                     );
                   })}
@@ -152,7 +154,7 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
                     onClick={() => previewTable(table.name)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 transition"
                   >
-                    <Eye className="w-3 h-3" /> Preview data
+                    <Eye className="w-3 h-3" /> {t.database.previewData}
                   </button>
                 </div>
               )}
@@ -165,7 +167,7 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
           {selectedTable && previewData ? (
             <div>
               <div className="px-4 py-2 border-b border-zinc-800 text-sm font-medium text-zinc-300">
-                {selectedTable} - Preview
+                {selectedTable} - {t.database.preview}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -173,7 +175,7 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
                     <tr>
                       {previewData.length > 0 &&
                         Object.keys(previewData[0]).map((key) => (
-                          <th key={key} className="text-left px-3 py-2 text-zinc-400 font-medium border-b border-zinc-800">
+                          <th key={key} className="text-start px-3 py-2 text-zinc-400 font-medium border-b border-zinc-800">
                             {key}
                           </th>
                         ))}
@@ -195,7 +197,7 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
-              Select a table to preview data
+              {t.database.selectTable}
             </div>
           )}
         </div>

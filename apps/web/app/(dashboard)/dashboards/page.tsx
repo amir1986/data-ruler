@@ -33,7 +33,7 @@ export default function DashboardsPage() {
   }, [fetchDashboards]);
 
   const handleCreate = async () => {
-    const dashboard = await createDashboard('Untitled Dashboard');
+    const dashboard = await createDashboard(t.dashboards.untitledDashboard);
     if (dashboard) {
       router.push(`/dashboards/${dashboard.id}`);
     }
