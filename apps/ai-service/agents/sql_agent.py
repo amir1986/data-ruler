@@ -9,7 +9,7 @@ import re
 import sqlite3
 from typing import Any
 
-from core.agent_base import AgentBase
+from core.agent_base import AgentBase, AgentContract
 from models.schemas import AgentMessage
 from services.ollama_client import chat_completion
 
@@ -43,6 +43,11 @@ class SQLAgent(AgentBase):
         super().__init__(
             agent_name="sql_agent",
             description="Converts natural language to SQL queries using cloud LLM, validates for safety, executes against user databases, and returns formatted results.",
+            contract=AgentContract(
+                required_inputs=("message",),
+                optional_inputs=("user_id", "schema_context"),
+                output_keys=("sql", "status", "columns", "rows", "row_count"),
+            ),
         )
 
     async def handle(self, message: AgentMessage) -> dict[str, Any]:

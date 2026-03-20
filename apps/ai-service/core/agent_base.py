@@ -6,6 +6,7 @@ import asyncio
 import logging
 import traceback
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -13,11 +14,33 @@ from uuid import UUID, uuid4
 from models.schemas import AgentMessage, AgentMessageType, Priority
 
 
+@dataclass(frozen=True)
+class AgentContract:
+    """Declares an agent's input/output contract for pipeline composition.
+
+    This metadata allows the orchestrator and tooling to validate pipelines
+    at planning time, surface clear errors when required data is missing,
+    and auto-generate documentation.
+    """
+
+    # Keys the agent expects in the incoming payload
+    required_inputs: tuple[str, ...] = ()
+    # Keys the agent can use but doesn't require
+    optional_inputs: tuple[str, ...] = ()
+    # Keys the agent guarantees in its response payload on success
+    output_keys: tuple[str, ...] = ()
+
+    def validate_payload(self, payload: dict[str, Any]) -> list[str]:
+        """Return a list of missing required keys (empty = valid)."""
+        return [k for k in self.required_inputs if k not in payload]
+
+
 class AgentBase(ABC):
     """Abstract base class every agent must inherit from.
 
     Provides:
     * Standard identity fields (name, description).
+    * An optional ``contract`` declaring input/output keys for pipeline validation.
     * An async ``process`` entry-point with automatic retries and logging.
     * Helpers for building ``AgentMessage`` instances.
     """
@@ -28,11 +51,13 @@ class AgentBase(ABC):
         description: str = "",
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        contract: AgentContract | None = None,
     ) -> None:
         self.agent_name = agent_name
         self.description = description
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.contract = contract or AgentContract()
         self.logger = logging.getLogger(f"agent.{agent_name}")
 
     # ------------------------------------------------------------------
@@ -53,6 +78,19 @@ class AgentBase(ABC):
 
     async def process(self, message: AgentMessage) -> AgentMessage:
         """Execute ``handle`` with automatic retries on failure."""
+        # Validate contract before processing
+        missing = self.contract.validate_payload(message.payload)
+        if missing:
+            self.logger.warning(
+                "Missing required inputs %s for agent '%s'",
+                missing,
+                self.agent_name,
+            )
+            return self.create_error(
+                source_message=message,
+                error=f"Missing required inputs: {', '.join(missing)}",
+            )
+
         last_error: Exception | None = None
 
         for attempt in range(1, self.max_retries + 1):
@@ -90,6 +128,23 @@ class AgentBase(ABC):
             source_message=message,
             error=str(last_error),
         )
+
+    # ------------------------------------------------------------------
+    # Introspection
+    # ------------------------------------------------------------------
+
+    def info(self) -> dict[str, Any]:
+        """Return agent metadata including contract info."""
+        return {
+            "name": self.agent_name,
+            "description": self.description,
+            "max_retries": self.max_retries,
+            "contract": {
+                "required_inputs": list(self.contract.required_inputs),
+                "optional_inputs": list(self.contract.optional_inputs),
+                "output_keys": list(self.contract.output_keys),
+            },
+        }
 
     # ------------------------------------------------------------------
     # Message factory helpers

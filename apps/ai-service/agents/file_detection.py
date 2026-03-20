@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any
 
-from core.agent_base import AgentBase
+from core.agent_base import AgentBase, AgentContract
 from models.schemas import AgentMessage
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,11 @@ class FileDetectionAgent(AgentBase):
         super().__init__(
             agent_name="file_detection",
             description="Identifies file types using magic byte signatures, file extensions, and content analysis.",
+            contract=AgentContract(
+                required_inputs=("file_path",),
+                optional_inputs=("original_name",),
+                output_keys=("file_path", "mime_type", "category", "file_type", "size_bytes"),
+            ),
         )
 
     async def handle(self, message: AgentMessage) -> dict[str, Any]:

@@ -9,6 +9,7 @@ from typing import Any, TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from core.agent_base import AgentBase
+from core.context_store import ContextStore, AgentContext
 from models.schemas import AgentMessage, AgentMessageType, Priority
 from services.ollama_client import chat_completion, get_client
 
@@ -60,14 +61,24 @@ Valid intents: process_file, analyze_data, query_data, ask_document, export, vis
 
 
 class OrchestratorAgent(AgentBase):
-    """Coordinates all specialist agents using LLM-powered intent parsing."""
+    """Coordinates all specialist agents using LLM-powered intent parsing.
 
-    def __init__(self, registry: AgentRegistry | None = None) -> None:
+    Integrates with ContextStore so that agents share workspace state
+    (tables, relationships, file catalog) across a session without
+    passing everything through message payloads.
+    """
+
+    def __init__(
+        self,
+        registry: AgentRegistry | None = None,
+        context_store: ContextStore | None = None,
+    ) -> None:
         super().__init__(
             agent_name="orchestrator",
             description="Master orchestrator — LLM-powered intent parsing, execution planning, and agent coordination.",
         )
         self.registry = registry
+        self.context_store = context_store or ContextStore()
         self.system_prompt = SYSTEM_PROMPT
 
     def set_registry(self, registry: AgentRegistry) -> None:
@@ -76,13 +87,21 @@ class OrchestratorAgent(AgentBase):
     async def handle(self, message: AgentMessage) -> dict[str, Any]:
         payload = message.payload
         user_message = payload.get("message", "")
-        context = payload.get("context", {})
+
+        # Resolve or create a session context
+        context_id = payload.get("context_id")
+        if context_id:
+            try:
+                context_id = UUID(str(context_id))
+            except (ValueError, TypeError):
+                context_id = None
+        ctx = self.context_store.get_or_create(context_id)
 
         # Step 1: LLM-powered intent parsing
-        plan = await self._parse_intent_llm(user_message, payload)
+        plan = await self._parse_intent_llm(user_message, payload, ctx)
 
         # Step 2: Execute plan with real agent dispatch
-        results = await self._execute_plan(plan, message)
+        results = await self._execute_plan(plan, message, ctx)
 
         # Step 3: Synthesize final response
         synthesis = await self._synthesize_results(
@@ -95,10 +114,14 @@ class OrchestratorAgent(AgentBase):
             "plan": plan.get("plan", []),
             "agent_results": results,
             "response": synthesis,
+            "context_id": str(ctx.context_id),
         }
 
     async def _parse_intent_llm(
-        self, user_message: str, payload: dict[str, Any]
+        self,
+        user_message: str,
+        payload: dict[str, Any],
+        ctx: AgentContext,
     ) -> dict[str, Any]:
         """Use LLM to parse user intent and generate execution plan."""
         context_info = ""
@@ -106,6 +129,13 @@ class OrchestratorAgent(AgentBase):
             context_info += f"\nUser has a file selected (ID: {payload['file_id']})"
         if payload.get("schema_context"):
             context_info += f"\nAvailable data:\n{payload['schema_context']}"
+
+        # Enrich with session context
+        if ctx.tables:
+            table_names = list(ctx.tables.keys())
+            context_info += f"\nTables in session: {', '.join(table_names)}"
+        if ctx.relationships:
+            context_info += f"\nKnown relationships: {len(ctx.relationships)}"
 
         prompt_messages = [
             {"role": "user", "content": (
@@ -163,9 +193,9 @@ class OrchestratorAgent(AgentBase):
         intent_plans = {
             "process_file": [
                 {"agent": "validation_security", "parallel_group": 0},
-                {"agent": "file_detection", "parallel_group": 1},
-                {"agent": "schema_inference", "parallel_group": 2},
-                {"agent": "storage_router", "parallel_group": 3},
+                {"agent": "file_detection", "parallel_group": 0},
+                {"agent": "schema_inference", "parallel_group": 1},
+                {"agent": "storage_router", "parallel_group": 2},
             ],
             "analyze_data": [
                 {"agent": "schema_inference", "parallel_group": 0},
@@ -179,9 +209,14 @@ class OrchestratorAgent(AgentBase):
             ],
             "export": [{"agent": "export_agent", "parallel_group": 0}],
             "find_relationships": [{"agent": "relationship_mining", "parallel_group": 0}],
-            "process_file": [
+            "ask_document": [{"agent": "document_qa", "parallel_group": 0}],
+            "store_data": [
                 {"agent": "file_detection", "parallel_group": 0},
                 {"agent": "storage_router", "parallel_group": 1},
+            ],
+            "profile_data": [
+                {"agent": "schema_inference", "parallel_group": 0},
+                {"agent": "analytics", "parallel_group": 1},
             ],
             "general_chat": [{"agent": "document_qa", "parallel_group": 0}],
         }
@@ -194,9 +229,17 @@ class OrchestratorAgent(AgentBase):
         }
 
     async def _execute_plan(
-        self, plan: dict[str, Any], source_message: AgentMessage,
+        self,
+        plan: dict[str, Any],
+        source_message: AgentMessage,
+        ctx: AgentContext,
     ) -> list[dict[str, Any]]:
-        """Execute the plan — parallel groups run concurrently, groups are sequential."""
+        """Execute the plan — parallel groups run concurrently, groups are sequential.
+
+        Each agent receives the accumulated context from prior groups so later
+        agents can build on earlier results.  Errors in one agent within a
+        parallel group do not block other agents in the same group.
+        """
         steps = plan.get("plan", [])
         if not steps:
             return []
@@ -210,6 +253,10 @@ class OrchestratorAgent(AgentBase):
         all_results: list[dict[str, Any]] = []
         accumulated_context = dict(source_message.payload)
 
+        # Include session context summary so agents have shared state
+        accumulated_context["_session_tables"] = list(ctx.tables.keys())
+        accumulated_context["_session_relationship_count"] = len(ctx.relationships)
+
         for group_id in sorted(groups.keys()):
             group_steps = groups[group_id]
 
@@ -218,7 +265,10 @@ class OrchestratorAgent(AgentBase):
                     group_steps[0]["agent"], accumulated_context, source_message,
                 )
                 all_results.append(result)
-                accumulated_context.update(result.get("data", {}))
+                if result.get("status") == "completed":
+                    accumulated_context.update(result.get("data", {}))
+                    # Persist relevant data into session context
+                    self._update_session_context(ctx, result)
             else:
                 # Fan-out parallel
                 tasks = [
@@ -228,14 +278,35 @@ class OrchestratorAgent(AgentBase):
                     for step in group_steps
                 ]
                 batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-                for r in batch_results:
+                for i, r in enumerate(batch_results):
                     if isinstance(r, Exception):
-                        all_results.append({"agent": "unknown", "status": "error", "error": str(r)})
+                        agent_name = group_steps[i]["agent"] if i < len(group_steps) else "unknown"
+                        all_results.append({
+                            "agent": agent_name,
+                            "status": "error",
+                            "error": str(r),
+                        })
                     else:
                         all_results.append(r)
-                        accumulated_context.update(r.get("data", {}))
+                        if r.get("status") == "completed":
+                            accumulated_context.update(r.get("data", {}))
+                            self._update_session_context(ctx, r)
 
         return all_results
+
+    def _update_session_context(
+        self, ctx: AgentContext, result: dict[str, Any]
+    ) -> None:
+        """Persist agent results into the session context for cross-agent sharing."""
+        data = result.get("data", {})
+        agent = result.get("agent", "")
+
+        # Cache the latest result per agent
+        ctx.cache_set(f"last_result:{agent}", data)
+
+        # If the agent produced schema info, cache it
+        if "columns" in data and "table_name" in data:
+            ctx.cache_set(f"schema:{data['table_name']}", data["columns"])
 
     async def _dispatch_to_agent(
         self,
@@ -272,7 +343,7 @@ class OrchestratorAgent(AgentBase):
             return {
                 "agent": agent_name,
                 "status": "error",
-                "error": "Dispatch returned None (circuit open or budget exhausted)",
+                "error": "Dispatch returned None (circuit open, budget exhausted, or timeout)",
             }
 
         return {

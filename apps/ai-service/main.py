@@ -24,7 +24,10 @@ context_store: ContextStore | None = None
 agent_registry: AgentRegistry | None = None
 
 
-def _register_all_agents(registry: AgentRegistry) -> None:
+def _register_all_agents(
+    registry: AgentRegistry,
+    _context_store: ContextStore | None = None,
+) -> None:
     """Register all specialist agents with the registry."""
     from agents.file_detection import FileDetectionAgent
     from agents.tabular_processor import TabularProcessorAgent
@@ -66,11 +69,15 @@ def _register_all_agents(registry: AgentRegistry) -> None:
     registry.register(CrossModalAgent(), capabilities=["qa", "cross_modal"])
     registry.register(ExportAgent(), capabilities=["export"])
     registry.register(ValidationSecurityAgent(), capabilities=["security", "validation"])
-    registry.register(SchedulerAgent(), capabilities=["scheduling"])
+    scheduler = SchedulerAgent()
+    registry.register(scheduler, capabilities=["scheduling"])
 
-    # Orchestrator with registry reference
-    orchestrator = OrchestratorAgent(registry=registry)
+    # Orchestrator with registry and context store references
+    orchestrator = OrchestratorAgent(registry=registry, context_store=_context_store)
     registry.register(orchestrator, capabilities=["orchestration"])
+
+    # Wire registry back into agents that need it for dispatch
+    scheduler.set_registry(registry)
 
     logger.info("Registered %d agents", len(registry.list_agents()))
 
@@ -92,7 +99,7 @@ async def lifespan(app: FastAPI):
     agent_registry = AgentRegistry(message_bus, breaker, budget)
 
     # Register all agents
-    _register_all_agents(agent_registry)
+    _register_all_agents(agent_registry, _context_store=context_store)
 
     # Expose via app.state
     app.state.message_bus = message_bus

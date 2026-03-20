@@ -1,16 +1,18 @@
-"""Chat router - handles AI chat with streaming responses via cloud LLM."""
+"""Chat router - handles AI chat via agent orchestration pipeline."""
 
 import json
 import logging
 import os
 import sqlite3
 from typing import AsyncIterator
+from uuid import uuid4
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from services.ollama_client import chat_completion_stream, chat_completion
+from models.schemas import AgentMessage, AgentMessageType, Priority
+from services.ollama_client import chat_completion_stream
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,6 +25,7 @@ class ChatRequest(BaseModel):
     user_id: str
     context_file_id: str | None = None
     context_dashboard_id: str | None = None
+    context_id: str | None = None
     conversation_history: list[dict] = []
 
 
@@ -78,132 +81,72 @@ def get_user_schema_context(user_id: str, file_id: str | None = None) -> str:
         conn.close()
 
 
-def detect_query_intent(message: str) -> str:
-    lower = message.lower()
-    data_keywords = [
-        "show", "count", "average", "sum", "total", "top", "bottom",
-        "group by", "filter", "where", "select", "compare", "trend",
-        "how many", "what is the", "list all", "find", "maximum", "minimum",
-        "distribution", "correlation", "between", "per", "by",
-    ]
-    chart_keywords = ["chart", "graph", "plot", "visualize", "dashboard"]
-
-    if any(kw in lower for kw in chart_keywords):
-        return "visualization"
-    if any(kw in lower for kw in data_keywords):
-        return "data_query"
-    return "general"
-
-
-async def handle_data_query(
-    message: str, user_id: str, schema_context: str, history: list[dict]
-) -> AsyncIterator[str]:
-    """Handle data queries by generating and executing SQL via cloud LLM."""
-    sql_prompt = [
-        {
-            "role": "system",
-            "content": f"""You are a SQL expert for a data analytics platform. Generate SQLite SQL queries.
-
-Available tables and schemas:
-{schema_context}
-
-Rules:
-1. Only generate SELECT queries.
-2. Use SQLite SQL dialect.
-3. Limit results to 100 rows unless user asks for more.
-4. Return ONLY the SQL query between ```sql and ``` markers."""
-        }
-    ]
-    for h in history[-5:]:
-        sql_prompt.append({"role": h.get("role", "user"), "content": h.get("content", "")})
-    sql_prompt.append({"role": "user", "content": message})
-
-    sql_response = await chat_completion(sql_prompt, model_tier="code", temperature=0.1)
-
-    # Extract SQL
-    sql_query = ""
-    if "```sql" in sql_response:
-        sql_query = sql_response.split("```sql")[1].split("```")[0].strip()
-    elif "```" in sql_response:
-        sql_query = sql_response.split("```")[1].split("```")[0].strip()
-    else:
-        sql_query = sql_response.strip()
-
-    if not sql_query.upper().strip().startswith("SELECT"):
-        yield f"data: {json.dumps({'content': 'I can only run SELECT queries for safety.'})}\n\n"
-        return
-
-    user_db_path = os.path.join(DATABASE_PATH, user_id, "user_data.db")
-    if not os.path.exists(user_db_path):
-        yield f"data: {json.dumps({'content': 'No data database found. Upload some data files first.'})}\n\n"
-        return
-
-    try:
-        conn = sqlite3.connect(user_db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute(sql_query)
-        columns = [desc[0] for desc in cursor.description] if cursor.description else []
-        rows = [dict(row) for row in cursor.fetchmany(100)]
-        conn.close()
-
-        result_text = f"**Query:** `{sql_query}`\n\n"
-        if rows:
-            result_text += f"**Results** ({len(rows)} rows):\n\n"
-            result_text += "| " + " | ".join(columns) + " |\n"
-            result_text += "| " + " | ".join(["---"] * len(columns)) + " |\n"
-            for row in rows[:20]:
-                result_text += "| " + " | ".join(str(row.get(c, ""))[:30] for c in columns) + " |\n"
-            if len(rows) > 20:
-                result_text += f"\n*...and {len(rows) - 20} more rows*\n"
-        else:
-            result_text += "No results found.\n"
-
-        yield f"data: {json.dumps({'content': result_text})}\n\n"
-    except Exception as e:
-        yield f"data: {json.dumps({'content': f'Query error: {str(e)}'})}\n\n"
-
-
-async def handle_general_chat(
-    message: str, schema_context: str, history: list[dict]
-) -> AsyncIterator[str]:
-    messages = []
-    for h in history[-10:]:
-        messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
-    messages.append({"role": "user", "content": message})
-
-    system_prompt = f"""You are an AI data assistant for DataRuler, a data analytics platform.
-You help users understand their data, suggest analyses, and answer questions.
-
-User's available data:
-{schema_context}
-
-Be helpful, concise, and data-focused."""
-
-    async for chunk in chat_completion_stream(messages, system=system_prompt):
-        yield f"data: {json.dumps({'content': chunk})}\n\n"
-
-
 @router.post("/chat")
-async def chat(req: ChatRequest):
-    """Handle chat with AI agent orchestration via cloud LLM."""
-    schema_context = get_user_schema_context(req.user_id, req.context_file_id)
-    intent = detect_query_intent(req.message)
+async def chat(req: ChatRequest, request: Request):
+    """Handle chat by routing through the agent orchestration pipeline.
 
-    async def generate():
-        if intent == "data_query":
-            async for chunk in handle_data_query(
-                req.message, req.user_id, schema_context, req.conversation_history
-            ):
-                yield chunk
-        else:
-            async for chunk in handle_general_chat(
-                req.message, schema_context, req.conversation_history
-            ):
-                yield chunk
+    The orchestrator determines the user's intent (data query, visualization,
+    general chat, etc.) and dispatches to the appropriate specialist agents.
+    For general chat, falls back to direct LLM streaming for low latency.
+    """
+    registry = request.app.state.agent_registry
+    schema_context = get_user_schema_context(req.user_id, req.context_file_id)
+
+    # Try routing through the orchestrator for structured intents
+    orchestrator = registry.get("orchestrator")
+    if orchestrator:
+        message = AgentMessage(
+            message_id=uuid4(),
+            correlation_id=uuid4(),
+            message_type=AgentMessageType.REQUEST,
+            source_agent="chat_api",
+            target_agent="orchestrator",
+            priority=Priority.HIGH,
+            payload={
+                "message": req.message,
+                "user_id": req.user_id,
+                "file_id": req.context_file_id,
+                "schema_context": schema_context,
+                "context_id": req.context_id,
+                "conversation_history": req.conversation_history,
+            },
+        )
+
+        response = await registry.dispatch(message)
+        if response and response.payload.get("response"):
+            # Stream the synthesized response back as SSE
+            async def stream_orchestrated():
+                content = response.payload["response"]
+                # Send as a single chunk with full metadata
+                yield f"data: {json.dumps({'content': content, 'intent': response.payload.get('intent'), 'context_id': response.payload.get('context_id')})}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(
+                stream_orchestrated(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            )
+
+    # Fallback: direct LLM streaming for general chat
+    async def stream_fallback():
+        messages = []
+        for h in req.conversation_history[-10:]:
+            messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+        messages.append({"role": "user", "content": req.message})
+
+        system_prompt = (
+            f"You are an AI data assistant for DataRuler, a data analytics platform.\n"
+            f"You help users understand their data, suggest analyses, and answer questions.\n\n"
+            f"User's available data:\n{schema_context}\n\n"
+            f"Be helpful, concise, and data-focused."
+        )
+
+        async for chunk in chat_completion_stream(messages, system=system_prompt):
+            yield f"data: {json.dumps({'content': chunk})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(
-        generate(),
+        stream_fallback(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )

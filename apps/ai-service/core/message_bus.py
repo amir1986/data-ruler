@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import defaultdict
+from collections import defaultdict, deque
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 from uuid import UUID
 
@@ -14,6 +15,47 @@ logger = logging.getLogger("message_bus")
 
 # Type alias for subscriber callbacks
 Subscriber = Callable[[AgentMessage], Awaitable[None]]
+
+
+class DeadLetterQueue:
+    """Stores messages that could not be delivered or expired.
+
+    Provides visibility into failed message delivery for debugging
+    and operational monitoring.
+    """
+
+    def __init__(self, max_size: int = 1000) -> None:
+        self._entries: deque[dict[str, Any]] = deque(maxlen=max_size)
+
+    def add(self, message: AgentMessage, reason: str) -> None:
+        self._entries.append({
+            "message_id": str(message.message_id),
+            "correlation_id": str(message.correlation_id),
+            "source_agent": message.source_agent,
+            "target_agent": message.target_agent,
+            "message_type": message.message_type.value,
+            "reason": reason,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        logger.warning(
+            "Dead letter: %s -> %s (reason=%s, msg_id=%s)",
+            message.source_agent,
+            message.target_agent,
+            reason,
+            message.message_id,
+        )
+
+    def recent(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Return the most recent dead-letter entries."""
+        items = list(self._entries)
+        return items[-limit:]
+
+    @property
+    def count(self) -> int:
+        return len(self._entries)
+
+    def clear(self) -> None:
+        self._entries.clear()
 
 
 class MessageBus:
@@ -27,6 +69,10 @@ class MessageBus:
       shares the same ``correlation_id``.
     * **Priority queue** -- higher-priority messages are delivered first
       (Python's ``asyncio.PriorityQueue`` with negated priority value).
+    * **TTL enforcement** -- messages past their TTL are moved to the
+      dead letter queue instead of being delivered.
+    * **Dead letter queue** -- undeliverable messages are captured for
+      operational visibility.
     """
 
     def __init__(self, max_queue_size: int = 10_000) -> None:
@@ -43,6 +89,14 @@ class MessageBus:
         self._seq = 0  # tie-breaker for equal priorities
         self._dispatch_task: asyncio.Task[None] | None = None
         self._running = False
+
+        # Dead letter queue for undeliverable messages
+        self.dead_letters = DeadLetterQueue()
+
+        # Metrics
+        self._published_count = 0
+        self._delivered_count = 0
+        self._expired_count = 0
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -97,6 +151,7 @@ class MessageBus:
     async def publish(self, message: AgentMessage) -> None:
         """Enqueue a message for delivery."""
         self._seq += 1
+        self._published_count += 1
         # Negate priority so higher numeric priority is dequeued first
         await self._queue.put((-message.priority.value, self._seq, message))
         logger.debug(
@@ -126,8 +181,33 @@ class MessageBus:
             self._pending.pop(message.correlation_id, None)
 
     # ------------------------------------------------------------------
+    # Observability
+    # ------------------------------------------------------------------
+
+    def stats(self) -> dict[str, Any]:
+        """Return bus-level operational statistics."""
+        return {
+            "published": self._published_count,
+            "delivered": self._delivered_count,
+            "expired": self._expired_count,
+            "queue_size": self._queue.qsize(),
+            "pending_correlations": len(self._pending),
+            "subscriber_channels": len(self._subscribers),
+            "dead_letter_count": self.dead_letters.count,
+        }
+
+    # ------------------------------------------------------------------
     # Internal dispatch loop
     # ------------------------------------------------------------------
+
+    def _is_expired(self, message: AgentMessage) -> bool:
+        """Check if the message has exceeded its TTL."""
+        if message.ttl_seconds <= 0:
+            return False
+        age = (datetime.now(timezone.utc) - message.timestamp.replace(
+            tzinfo=timezone.utc
+        )).total_seconds()
+        return age > message.ttl_seconds
 
     async def _dispatch_loop(self) -> None:
         while self._running:
@@ -140,6 +220,17 @@ class MessageBus:
             except asyncio.CancelledError:
                 break
 
+            # TTL enforcement
+            if self._is_expired(message):
+                self._expired_count += 1
+                self.dead_letters.add(message, "ttl_expired")
+                # Still resolve correlation futures so callers aren't stuck
+                if message.correlation_id in self._pending:
+                    fut = self._pending.pop(message.correlation_id)
+                    if not fut.done():
+                        fut.cancel()
+                continue
+
             # Resolve pending correlation futures
             if message.correlation_id in self._pending:
                 fut = self._pending[message.correlation_id]
@@ -148,12 +239,16 @@ class MessageBus:
 
             # Fan-out to subscribers
             subscribers = self._subscribers.get(message.target_agent, [])
-            for callback in subscribers:
-                try:
-                    await callback(message)
-                except Exception:
-                    logger.exception(
-                        "Subscriber %s failed processing message %s",
-                        callback,
-                        message.message_id,
-                    )
+            if not subscribers and message.target_agent:
+                self.dead_letters.add(message, "no_subscribers")
+            else:
+                for callback in subscribers:
+                    try:
+                        await callback(message)
+                        self._delivered_count += 1
+                    except Exception:
+                        logger.exception(
+                            "Subscriber %s failed processing message %s",
+                            callback,
+                            message.message_id,
+                        )
