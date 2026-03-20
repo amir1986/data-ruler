@@ -183,8 +183,8 @@ function buildHeatmapChart(data: ChartData, title?: string): EChartsOption {
     },
     series: [
       {
-        type: 'heatmap',
-        data: data.values || [],
+        type: 'heatmap' as const,
+        data: (data.values || []) as any,
         emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } },
       },
     ],
