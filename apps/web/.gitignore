@@ -39,3 +39,6 @@ next-env.d.ts
 *.db
 *.sqlite
 *.sqlite3
+
+# runtime data
+data/
