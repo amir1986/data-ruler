@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-super-secret-key-change-in-production}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - AI_SERVICE_URL=http://ai-service:8000
+      - DATABASE_PATH=/data/databases
+      - UPLOAD_PATH=/data/uploads
+    volumes:
+      - app-data:/data
+    depends_on:
+      - ai-service
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - DATABASE_PATH=/data/databases
+      - UPLOAD_PATH=/data/uploads
+      - VECTOR_PATH=/data/vectors
+      - THUMBNAIL_PATH=/data/thumbnails
+      - TRANSCRIPTION_PATH=/data/transcriptions
+      - EXPORT_PATH=/data/exports
+    volumes:
+      - app-data:/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  app-data:
+  ollama-data:

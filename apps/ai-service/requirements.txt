@@ -1,0 +1,51 @@
+# Web framework
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic>=2.0
+
+# Data processing
+polars
+pandas
+openpyxl
+pyarrow
+
+# Document parsing
+PyMuPDF
+python-docx
+python-pptx
+
+# SQL / query engine
+sqlparse
+duckdb
+
+# Vector store & embeddings
+chromadb
+sentence-transformers
+
+# HTTP client (Ollama API calls)
+httpx
+
+# File type detection
+python-magic
+chardet
+
+# Image processing
+Pillow
+exifread
+
+# Async file I/O
+aiofiles
+
+# Auth
+bcrypt
+python-jose[cryptography]
+
+# Config file parsing
+pyyaml
+toml
+xmltodict
+
+# Utilities
+python-dateutil
+orjson
