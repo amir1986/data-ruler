@@ -171,6 +171,23 @@ function initializeSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_tasks_user ON processing_tasks(user_id);
     CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_name);
     CREATE INDEX IF NOT EXISTS idx_agent_logs_created ON agent_logs(created_at);
+
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT 'Untitled Report',
+      description TEXT,
+      template TEXT NOT NULL DEFAULT 'executive_summary',
+      status TEXT NOT NULL DEFAULT 'draft',
+      file_ids JSON DEFAULT '[]',
+      content JSON DEFAULT '{}',
+      config JSON DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_reports_user ON reports(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
   `);
 }
 
