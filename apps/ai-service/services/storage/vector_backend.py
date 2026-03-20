@@ -110,3 +110,103 @@ def delete_file_documents(user_id: str, file_id: str) -> bool:
     except Exception as e:
         logger.error(f"Delete documents failed: {e}")
         return False
+
+
+# ---------------------------------------------------------------------------
+# Class-based wrapper (used by agents)
+# ---------------------------------------------------------------------------
+
+class VectorBackend:
+    """Async-compatible ChromaDB vector backend wrapper used by agents."""
+
+    def __init__(self) -> None:
+        self._client = get_client()
+
+    async def index_document(
+        self,
+        collection_name: str,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Index a document by chunking and storing in ChromaDB.
+
+        Returns a document ID.
+        """
+        from services.embedding import EmbeddingService
+        from uuid import uuid4
+
+        embedding_service = EmbeddingService()
+        chunks = embedding_service.chunk_text(text)
+        if not chunks:
+            return ""
+
+        chunks_with_emb = await embedding_service.embed_chunks(chunks)
+        doc_id = str(uuid4())
+
+        if self._client is None:
+            raise RuntimeError("ChromaDB client not initialized")
+
+        collection = self._client.get_or_create_collection(name=collection_name)
+
+        ids = []
+        documents = []
+        embeddings = []
+        metadatas = []
+
+        for chunk in chunks_with_emb:
+            chunk_id = f"{doc_id}_{chunk['index']}"
+            ids.append(chunk_id)
+            documents.append(chunk["text"])
+            embeddings.append(chunk["embedding"])
+            meta = {"doc_id": doc_id, "chunk_index": chunk["index"]}
+            if metadata:
+                meta.update({k: str(v) for k, v in metadata.items()})
+            metadatas.append(meta)
+
+        collection.add(
+            ids=ids,
+            documents=documents,
+            embeddings=embeddings,
+            metadatas=metadatas,
+        )
+        return doc_id
+
+    async def search(
+        self,
+        collection_name: str,
+        query: str,
+        top_k: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Semantic search in a collection."""
+        from services.embedding import EmbeddingService
+
+        if self._client is None:
+            return []
+
+        embedding_service = EmbeddingService()
+        query_emb = await embedding_service.embed_text(query)
+        if not query_emb:
+            return []
+
+        collection = self._client.get_or_create_collection(name=collection_name)
+        results = collection.query(
+            query_embeddings=[query_emb],
+            n_results=top_k,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        formatted = []
+        ids = results.get("ids", [[]])[0]
+        docs = results.get("documents", [[]])[0]
+        metas = results.get("metadatas", [[]])[0]
+        dists = results.get("distances", [[]])[0]
+
+        for i in range(len(ids)):
+            score = max(0, 1 - (dists[i] if i < len(dists) else 0))
+            formatted.append({
+                "id": ids[i],
+                "text": docs[i] if i < len(docs) else "",
+                "metadata": metas[i] if i < len(metas) else {},
+                "score": round(score, 4),
+            })
+        return formatted

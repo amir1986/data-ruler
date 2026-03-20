@@ -141,3 +141,87 @@ def list_tables(user_id: str) -> list[dict[str, Any]]:
         return []
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Class-based wrapper (used by agents)
+# ---------------------------------------------------------------------------
+
+class SQLiteBackend:
+    """Async-compatible SQLite backend wrapper used by agents."""
+
+    def __init__(self, db_path: str | None = None) -> None:
+        self.db_path = db_path or os.path.join(DATABASE_PATH, "default", "user_data.db")
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
+    async def create_table(
+        self, table_name: str, schema: list[dict[str, str]]
+    ) -> None:
+        """Create a table from a schema list of {name, dtype}."""
+        conn = self._connect()
+        try:
+            col_defs = []
+            for col in schema:
+                name = col["name"].replace('"', '""')
+                dtype = col.get("dtype", col.get("type", "TEXT"))
+                col_defs.append(f'"{name}" {dtype}')
+            sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(col_defs)})'
+            conn.execute(sql)
+            conn.commit()
+        finally:
+            conn.close()
+
+    async def insert_rows(
+        self, table_name: str, rows: list[dict[str, Any]], batch_size: int = 1000
+    ) -> int:
+        """Insert rows into a table. Returns number inserted."""
+        if not rows:
+            return 0
+        conn = self._connect()
+        columns = list(rows[0].keys())
+        placeholders = ", ".join(["?"] * len(columns))
+        col_names = ", ".join(f'"{c}"' for c in columns)
+        sql = f'INSERT INTO "{table_name}" ({col_names}) VALUES ({placeholders})'
+        inserted = 0
+        try:
+            batch: list[tuple[Any, ...]] = []
+            for row in rows:
+                batch.append(tuple(row.get(c) for c in columns))
+                if len(batch) >= batch_size:
+                    conn.executemany(sql, batch)
+                    inserted += len(batch)
+                    batch = []
+            if batch:
+                conn.executemany(sql, batch)
+                inserted += len(batch)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        return inserted
+
+    async def execute_query(
+        self, sql: str, parameters: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Execute a read-only SQL query."""
+        conn = self._connect()
+        try:
+            if parameters:
+                cursor = conn.execute(sql, parameters)
+            else:
+                cursor = conn.execute(sql)
+            columns = [desc[0] for desc in cursor.description] if cursor.description else []
+            rows = [list(row) for row in cursor.fetchall()]
+            return {"columns": columns, "rows": rows, "row_count": len(rows)}
+        except Exception as exc:
+            return {"error": str(exc), "columns": [], "rows": [], "row_count": 0}
+        finally:
+            conn.close()

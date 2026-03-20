@@ -74,3 +74,52 @@ def get_storage_usage(user_id: str) -> dict[str, Any]:
         "total_mb": round(total / (1024 * 1024), 2),
         "file_count": file_count,
     }
+
+
+# ---------------------------------------------------------------------------
+# Class-based wrapper (used by agents)
+# ---------------------------------------------------------------------------
+
+class FilesystemBackend:
+    """Async-compatible filesystem backend wrapper used by agents."""
+
+    def __init__(self, base_path: str | None = None) -> None:
+        self.base_path = base_path or UPLOAD_PATH
+
+    async def store_file(
+        self,
+        file_id: str,
+        source_path: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Copy a file to managed storage and return the stored path."""
+        import json as _json
+
+        dest_dir = os.path.join(self.base_path, file_id)
+        os.makedirs(dest_dir, exist_ok=True)
+
+        filename = os.path.basename(source_path)
+        dest_path = os.path.join(dest_dir, filename)
+
+        shutil.copy2(source_path, dest_path)
+
+        # Store metadata alongside the file
+        if metadata:
+            meta_path = os.path.join(dest_dir, "_metadata.json")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                _json.dump(metadata, f, indent=2, default=str)
+
+        return dest_path
+
+    async def retrieve_file(self, file_id: str, filename: str) -> str | None:
+        """Get the path to a stored file."""
+        path = os.path.join(self.base_path, file_id, filename)
+        return path if os.path.exists(path) else None
+
+    async def delete_file(self, file_id: str) -> bool:
+        """Delete a stored file and its directory."""
+        path = os.path.join(self.base_path, file_id)
+        if os.path.exists(path):
+            shutil.rmtree(path)
+            return True
+        return False
