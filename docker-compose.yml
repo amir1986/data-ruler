@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-super-secret-key-change-in-production}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - AI_SERVICE_URL=http://ai-service:8000
+      - DATABASE_PATH=/data/databases
+      - UPLOAD_PATH=/data/uploads
+    volumes:
+      - app-data:/data
+    depends_on:
+      - ai-service
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Cloud LLM keys (pass from host .env)
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - HF_API_TOKEN=${HF_API_TOKEN:-}
+      # Model overrides
+      - GROQ_CHAT_MODEL=${GROQ_CHAT_MODEL:-llama-3.3-70b-versatile}
+      - GROQ_CODE_MODEL=${GROQ_CODE_MODEL:-llama-3.3-70b-versatile}
+      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-llama-3.1-8b-instant}
+      - OPENROUTER_CHAT_MODEL=${OPENROUTER_CHAT_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      - HF_CHAT_MODEL=${HF_CHAT_MODEL:-meta-llama/Llama-3.1-8B-Instruct}
+      - HF_EMBED_MODEL=${HF_EMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      # Storage
+      - DATABASE_PATH=/data/databases
+      - UPLOAD_PATH=/data/uploads
+      - VECTOR_PATH=/data/vectors
+      - THUMBNAIL_PATH=/data/thumbnails
+      - EXPORT_PATH=/data/exports
+      - LLM_TIMEOUT=120
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+volumes:
+  app-data:
