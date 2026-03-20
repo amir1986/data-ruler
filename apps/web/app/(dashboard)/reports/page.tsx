@@ -144,40 +144,30 @@ export default function ReportsPage() {
   };
 
   const handleGenerate = async (report: Report) => {
+    // Optimistically set status to generating
     await updateReport(report.id, {
       status: 'generating',
     } as Partial<Report>);
 
-    // Simulate AI generation (in a real app this would call the AI service)
-    setTimeout(async () => {
-      const template = getTemplateInfo(report.template);
-      await updateReport(report.id, {
-        status: 'ready',
-        content: {
-          generated_at: new Date().toISOString(),
-          template: report.template,
-          summary: `This ${template.title} was generated based on ${report.file_ids.length || 'all available'} data source(s). The analysis covers data quality metrics, key statistical insights, and actionable recommendations.`,
-          sections: [
-            {
-              title: 'Overview',
-              content: 'An automated analysis of the selected data sources has been completed. Key metrics and insights are summarized below.',
-            },
-            {
-              title: 'Data Quality',
-              content: 'Overall data quality score across all analyzed datasets. Quality is assessed based on completeness, consistency, accuracy, and timeliness.',
-            },
-            {
-              title: 'Key Findings',
-              content: 'The analysis identified patterns and trends in the data. Detailed breakdowns are available for each dataset included in this report.',
-            },
-            {
-              title: 'Recommendations',
-              content: 'Based on the analysis, several actions are recommended to improve data quality and leverage identified opportunities.',
-            },
-          ],
-        },
-      } as Partial<Report>);
-    }, 2000);
+    try {
+      const res = await fetch(`/api/reports/${report.id}/generate`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Refresh the reports list to get updated content
+        await fetchReports();
+        // If viewing this report, update the active view
+        if (activeReport?.id === report.id) {
+          setActiveReport(data.report);
+        }
+      } else {
+        // API returned error, set error status
+        await updateReport(report.id, { status: 'error' } as Partial<Report>);
+      }
+    } catch {
+      await updateReport(report.id, { status: 'error' } as Partial<Report>);
+    }
   };
 
   const handleDelete = async (id: string) => {

@@ -36,8 +36,11 @@ export default function SettingsPage() {
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [aiModel, setAiModel] = useState('qwen2.5:7b');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
   const [storageUsed, setStorageUsed] = useState<string | null>(null);
+  const [storagePercent, setStoragePercent] = useState(0);
+  const [fileCount, setFileCount] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -48,18 +51,25 @@ export default function SettingsPage() {
     const dark = document.documentElement.classList.contains('dark');
     setIsDark(dark);
 
-    // Estimate storage (placeholder)
-    if (navigator.storage && navigator.storage.estimate) {
-      navigator.storage.estimate().then((est) => {
-        const used = est.usage || 0;
-        const quota = est.quota || 0;
-        setStorageUsed(
-          `${formatStorage(used)} / ${formatStorage(quota)}`
-        );
-      });
-    } else {
-      setStorageUsed('N/A');
-    }
+    // Fetch real storage usage from server
+    fetch('/api/settings/storage')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.storage) {
+          const s = data.storage;
+          setFileCount(s.file_count);
+          const used = s.total_disk_usage;
+          setStorageUsed(
+            `${formatStorage(used)} (${s.file_count} file${s.file_count !== 1 ? 's' : ''})`
+          );
+          // Cap percentage display at 100
+          const maxStorage = 10 * 1024 * 1024 * 1024; // assume 10GB soft limit for display
+          setStoragePercent(Math.min(100, Math.round((used / maxStorage) * 100)));
+        } else {
+          setStorageUsed('N/A');
+        }
+      })
+      .catch(() => setStorageUsed('N/A'));
   }, [user]);
 
   const formatStorage = (bytes: number): string => {
@@ -75,10 +85,23 @@ export default function SettingsPage() {
     document.documentElement.classList.toggle('dark', dark);
   };
 
-  const handleSaveProfile = () => {
-    // Placeholder: would call an API to update user profile
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name: displayName }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleClearCache = () => {
@@ -144,12 +167,18 @@ export default function SettingsPage() {
               </div>
               <Button
                 onClick={handleSaveProfile}
+                disabled={saving}
                 className="bg-blue-600 hover:bg-blue-500 text-white"
               >
                 {saved ? (
                   <>
                     <Check className="h-4 w-4 mr-2" />
                     Saved
+                  </>
+                ) : saving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
                   </>
                 ) : (
                   <>
@@ -252,7 +281,7 @@ export default function SettingsPage() {
                   <div className="h-2 w-32 rounded-full bg-zinc-800">
                     <div
                       className="h-full rounded-full bg-blue-500"
-                      style={{ width: '30%' }}
+                      style={{ width: `${storagePercent}%` }}
                     />
                   </div>
                 )}
@@ -269,11 +298,16 @@ export default function SettingsPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => {
+                  onClick={async () => {
                     if (confirm('Reprocess all uploaded files? This may take a while.')) {
                       setReprocessing(true);
-                      // Placeholder: would call an API to reprocess all files
-                      setTimeout(() => setReprocessing(false), 3000);
+                      try {
+                        await fetch('/api/processing/reprocess', { method: 'POST' });
+                      } catch {
+                        // silently handle
+                      } finally {
+                        setReprocessing(false);
+                      }
                     }
                   }}
                   disabled={reprocessing}
