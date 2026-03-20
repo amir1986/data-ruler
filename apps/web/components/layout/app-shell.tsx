@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { MessageSquare } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { Sidebar } from "@/components/layout/sidebar"
+import { useChatStore } from "@/stores/chat-store"
 import { ChatSidebar, type ChatMessage } from "@/components/layout/chat-sidebar"
 import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/toast"
@@ -46,8 +46,14 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [chatOpen, setChatOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
-  const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([])
-  const [chatLoading, setChatLoading] = React.useState(false)
+  const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage } = useChatStore()
+  const chatMessages = chatStoreMessages.map(m => ({
+    id: m.id,
+    role: m.role as "user" | "assistant",
+    content: m.content,
+    timestamp: new Date(m.created_at),
+  }))
+  const chatLoading = streaming
 
   // Command palette shortcut (Cmd+K / Ctrl+K)
   React.useEffect(() => {
@@ -63,27 +69,7 @@ export function AppShell({
   }, [])
 
   const handleSendMessage = (content: string) => {
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content,
-      timestamp: new Date(),
-    }
-    setChatMessages((prev) => [...prev, userMessage])
-    setChatLoading(true)
-
-    // Placeholder: simulate assistant response
-    setTimeout(() => {
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "I'm the AI assistant. This is a placeholder response. Connect me to your backend to get real answers about your data.",
-        timestamp: new Date(),
-      }
-      setChatMessages((prev) => [...prev, assistantMessage])
-      setChatLoading(false)
-    }, 1500)
+    storeSendMessage(content)
   }
 
   const commandNavItems = [

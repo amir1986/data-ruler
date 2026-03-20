@@ -1,21 +1,22 @@
-FROM python:3.11-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    tesseract-ocr \
-    libmagic1 \
-    mdbtools \
-    pandoc \
-    && rm -rf /var/lib/apt/lists/*
+FROM python:3.12-slim
 
 WORKDIR /app
 
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Application code
 COPY . .
 
-RUN mkdir -p /data/{uploads,databases,vectors,thumbnails,transcriptions,exports}
+# Create data directories
+RUN mkdir -p /data/databases /data/uploads /data/vectors \
+    /data/thumbnails /data/exports /data/transcriptions
 
 EXPOSE 8000
 

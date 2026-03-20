@@ -1,8 +1,10 @@
-"""Tabular Processing Agent - parses CSV, XLSX, Parquet, and other tabular formats."""
+"""Tabular Processing Agent - parses CSV, XLSX, Parquet into structured data."""
 
 from __future__ import annotations
 
+import csv
 import io
+import json
 import logging
 import os
 from typing import Any
@@ -12,218 +14,179 @@ from models.schemas import AgentMessage
 
 logger = logging.getLogger(__name__)
 
+MAX_ROWS = 50000  # Maximum rows to process in memory
+
 
 class TabularProcessorAgent(AgentBase):
-    """Parses tabular files and returns DataFrames with schema information."""
+    """Parses tabular files and returns columns + rows."""
 
     def __init__(self) -> None:
         super().__init__(
             agent_name="tabular_processor",
-            description="Parses CSV, XLSX, XLS, Parquet, Feather, TSV, and ODS files into structured DataFrames.",
+            description="Parses CSV, XLSX, XLS, Parquet, Feather, TSV, and ODS files into structured data.",
         )
 
     async def handle(self, message: AgentMessage) -> dict[str, Any]:
-        """Process a tabular file and return schema + preview data."""
         payload = message.payload
         file_path: str = payload.get("file_path", "")
-        mime_type: str = payload.get("mime_type", "")
-        extension: str = payload.get("extension", "")
-        content_info: dict[str, Any] = payload.get("content_info", {})
+        file_type: str = payload.get("file_type", "")
 
         if not file_path or not os.path.exists(file_path):
             return {"error": f"File not found: {file_path}"}
 
-        ext = extension or os.path.splitext(file_path)[1].lower()
+        return await self.process_file(file_path, file_type)
+
+    async def process_file(self, file_path: str, file_type: str = "") -> dict[str, Any]:
+        """Process a tabular file and return columns + rows."""
+        if not file_type:
+            ext = os.path.splitext(file_path)[1].lower()
+            type_map = {".csv": "csv", ".tsv": "tsv", ".xlsx": "xlsx",
+                        ".xls": "xls", ".parquet": "parquet", ".feather": "feather"}
+            file_type = type_map.get(ext, "csv")
 
         try:
-            if ext in (".csv", ".tsv"):
-                return await self._parse_csv(file_path, ext, content_info)
-            elif ext in (".xlsx", ".xls"):
-                return await self._parse_excel(file_path, ext)
-            elif ext == ".parquet":
-                return await self._parse_parquet(file_path)
-            elif ext == ".feather":
-                return await self._parse_feather(file_path)
-            elif ext == ".ods":
-                return await self._parse_ods(file_path)
+            if file_type == "csv":
+                return self._parse_csv(file_path, delimiter=",")
+            elif file_type == "tsv":
+                return self._parse_csv(file_path, delimiter="\t")
+            elif file_type in ("xlsx", "xls"):
+                return self._parse_excel(file_path)
+            elif file_type == "parquet":
+                return self._parse_parquet(file_path)
+            elif file_type == "feather":
+                return self._parse_feather(file_path)
             else:
-                # Attempt CSV as fallback
-                return await self._parse_csv(file_path, ext, content_info)
+                return self._parse_csv(file_path, delimiter=",")
         except Exception as exc:
-            self.logger.error("Failed to parse tabular file %s: %s", file_path, exc)
-            return {"error": str(exc), "file_path": file_path}
+            return {"error": str(exc)}
 
-    async def _parse_csv(
-        self, file_path: str, ext: str, content_info: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Parse CSV/TSV using Polars with encoding and delimiter detection."""
-        import polars as pl
-
-        delimiter = content_info.get("detected_delimiter", "," if ext != ".tsv" else "\t")
-        encoding = content_info.get("encoding", "utf-8")
-        has_header = content_info.get("likely_header", True)
-
+    def _parse_csv(self, file_path: str, delimiter: str = ",") -> dict[str, Any]:
+        """Parse CSV/TSV files."""
+        rows = []
+        columns = []
         try:
-            df = pl.read_csv(
-                file_path,
-                separator=delimiter,
-                encoding=encoding if encoding in ("utf-8", "utf-8-sig") else "utf8",
-                has_header=has_header,
-                infer_schema_length=10000,
-                try_parse_dates=True,
-                ignore_errors=True,
-            )
-        except Exception:
-            # Fallback: try with latin-1 encoding
-            self.logger.info("Retrying CSV parse with latin-1 encoding")
-            df = pl.read_csv(
-                file_path,
-                separator=delimiter,
-                encoding="utf8",
-                has_header=has_header,
-                ignore_errors=True,
-            )
-
-        schema = [
-            {"name": col, "dtype": str(df[col].dtype)}
-            for col in df.columns
-        ]
-
-        preview_rows = df.head(100).to_dicts()
-
-        return {
-            "format": "csv" if ext != ".tsv" else "tsv",
-            "delimiter": delimiter,
-            "encoding": encoding,
-            "has_header": has_header,
-            "row_count": df.height,
-            "column_count": df.width,
-            "schema": schema,
-            "preview": preview_rows,
-            "file_path": file_path,
-        }
-
-    async def _parse_excel(self, file_path: str, ext: str) -> dict[str, Any]:
-        """Parse XLSX/XLS using openpyxl, handling multi-sheet workbooks."""
-        import polars as pl
-
-        sheets_data: list[dict[str, Any]] = []
-
-        try:
-            # Get sheet names
-            from openpyxl import load_workbook
-
-            wb = load_workbook(file_path, read_only=True, data_only=True)
-            sheet_names = wb.sheetnames
-            wb.close()
-        except Exception:
-            sheet_names = ["Sheet1"]
-
-        for sheet_name in sheet_names:
+            # Detect encoding
+            with open(file_path, "rb") as f:
+                raw = f.read(8192)
+            encoding = "utf-8"
             try:
-                df = pl.read_excel(
-                    file_path,
-                    sheet_name=sheet_name,
-                    infer_schema_length=10000,
-                )
+                raw.decode("utf-8")
+            except UnicodeDecodeError:
+                encoding = "latin-1"
 
-                schema = [
-                    {"name": col, "dtype": str(df[col].dtype)}
-                    for col in df.columns
-                ]
+            with open(file_path, "r", encoding=encoding, errors="replace") as f:
+                # Sniff dialect
+                sample = f.read(8192)
+                f.seek(0)
+                try:
+                    dialect = csv.Sniffer().sniff(sample, delimiters=f"{delimiter};|\t")
+                except csv.Error:
+                    dialect = csv.excel
+                    dialect.delimiter = delimiter
 
-                sheets_data.append({
-                    "sheet_name": sheet_name,
-                    "row_count": df.height,
-                    "column_count": df.width,
-                    "schema": schema,
-                    "preview": df.head(100).to_dicts(),
-                })
-            except Exception as exc:
-                self.logger.warning(
-                    "Failed to parse sheet '%s': %s", sheet_name, exc
-                )
-                sheets_data.append({
-                    "sheet_name": sheet_name,
-                    "error": str(exc),
-                })
-
-        total_rows = sum(s.get("row_count", 0) for s in sheets_data)
-
-        return {
-            "format": ext.lstrip("."),
-            "sheet_count": len(sheet_names),
-            "sheet_names": sheet_names,
-            "sheets": sheets_data,
-            "total_rows": total_rows,
-            "file_path": file_path,
-        }
-
-    async def _parse_parquet(self, file_path: str) -> dict[str, Any]:
-        """Parse Parquet files using PyArrow."""
-        import pyarrow.parquet as pq
-        import polars as pl
-
-        # Get metadata from PyArrow
-        pf = pq.ParquetFile(file_path)
-        metadata = pf.metadata
-
-        df = pl.read_parquet(file_path)
-
-        schema = [
-            {"name": col, "dtype": str(df[col].dtype)}
-            for col in df.columns
-        ]
-
-        return {
-            "format": "parquet",
-            "row_count": df.height,
-            "column_count": df.width,
-            "row_groups": metadata.num_row_groups if metadata else None,
-            "schema": schema,
-            "preview": df.head(100).to_dicts(),
-            "file_path": file_path,
-        }
-
-    async def _parse_feather(self, file_path: str) -> dict[str, Any]:
-        """Parse Feather/Arrow IPC files."""
-        import polars as pl
-
-        df = pl.read_ipc(file_path)
-
-        schema = [
-            {"name": col, "dtype": str(df[col].dtype)}
-            for col in df.columns
-        ]
-
-        return {
-            "format": "feather",
-            "row_count": df.height,
-            "column_count": df.width,
-            "schema": schema,
-            "preview": df.head(100).to_dicts(),
-            "file_path": file_path,
-        }
-
-    async def _parse_ods(self, file_path: str) -> dict[str, Any]:
-        """Parse ODS files using Polars."""
-        import polars as pl
-
-        try:
-            df = pl.read_ods(file_path, infer_schema_length=10000)
-
-            schema = [
-                {"name": col, "dtype": str(df[col].dtype)}
-                for col in df.columns
-            ]
+                reader = csv.DictReader(f, dialect=dialect)
+                columns = reader.fieldnames or []
+                for i, row in enumerate(reader):
+                    if i >= MAX_ROWS:
+                        break
+                    rows.append(dict(row))
 
             return {
-                "format": "ods",
-                "row_count": df.height,
-                "column_count": df.width,
-                "schema": schema,
-                "preview": df.head(100).to_dicts(),
-                "file_path": file_path,
+                "columns": columns,
+                "rows": rows,
+                "row_count": len(rows),
+                "format": "csv",
+                "encoding": encoding,
             }
         except Exception as exc:
-            return {"error": f"ODS parsing failed: {exc}", "file_path": file_path}
+            return {"error": f"CSV parse error: {exc}"}
+
+    def _parse_excel(self, file_path: str) -> dict[str, Any]:
+        """Parse XLSX/XLS files using openpyxl."""
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+            sheets_data = {}
+
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                rows_iter = ws.iter_rows(values_only=True)
+
+                # First row = headers
+                header_row = next(rows_iter, None)
+                if not header_row:
+                    continue
+                columns = [str(h) if h is not None else f"col_{i}" for i, h in enumerate(header_row)]
+
+                rows = []
+                for i, row in enumerate(rows_iter):
+                    if i >= MAX_ROWS:
+                        break
+                    rows.append({columns[j]: (str(v) if v is not None else None) for j, v in enumerate(row) if j < len(columns)})
+
+                sheets_data[sheet_name] = {
+                    "columns": columns,
+                    "rows": rows,
+                    "row_count": len(rows),
+                }
+
+            wb.close()
+
+            # Return first sheet as primary
+            if sheets_data:
+                first = next(iter(sheets_data.values()))
+                first["format"] = "xlsx"
+                first["sheets"] = list(sheets_data.keys())
+                first["all_sheets"] = sheets_data
+                return first
+
+            return {"error": "No sheets found in workbook"}
+        except Exception as exc:
+            return {"error": f"Excel parse error: {exc}"}
+
+    def _parse_parquet(self, file_path: str) -> dict[str, Any]:
+        """Parse Parquet files using pyarrow."""
+        try:
+            import pyarrow.parquet as pq
+            table = pq.read_table(file_path)
+            columns = table.column_names
+
+            rows = []
+            batch = table.to_pydict()
+            n_rows = min(table.num_rows, MAX_ROWS)
+            for i in range(n_rows):
+                row = {col: str(batch[col][i]) if batch[col][i] is not None else None for col in columns}
+                rows.append(row)
+
+            return {
+                "columns": columns,
+                "rows": rows,
+                "row_count": n_rows,
+                "format": "parquet",
+                "total_rows": table.num_rows,
+            }
+        except Exception as exc:
+            return {"error": f"Parquet parse error: {exc}"}
+
+    def _parse_feather(self, file_path: str) -> dict[str, Any]:
+        """Parse Feather files using pyarrow."""
+        try:
+            import pyarrow.feather as feather
+            table = feather.read_table(file_path)
+            columns = table.column_names
+
+            rows = []
+            batch = table.to_pydict()
+            n_rows = min(table.num_rows, MAX_ROWS)
+            for i in range(n_rows):
+                row = {col: str(batch[col][i]) if batch[col][i] is not None else None for col in columns}
+                rows.append(row)
+
+            return {
+                "columns": columns,
+                "rows": rows,
+                "row_count": n_rows,
+                "format": "feather",
+            }
+        except Exception as exc:
+            return {"error": f"Feather parse error: {exc}"}

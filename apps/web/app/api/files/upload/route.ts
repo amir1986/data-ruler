@@ -71,17 +71,14 @@ export async function POST(req: NextRequest) {
       );
 
       try {
-        fetch(`${AI_SERVICE_URL}/process`, {
+        fetch(`${AI_SERVICE_URL}/api/files/process`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            fileId,
-            userId: user.id,
-            filePath: storedPath,
-            fileName: file.name,
-            fileType: ext,
-            fileCategory: category,
-            mimeType,
+            file_id: fileId,
+            user_id: user.id,
+            file_path: storedPath,
+            original_name: file.name,
           }),
         }).catch((err) => {
           console.error(`Failed to notify AI service for file ${fileId}:`, err);

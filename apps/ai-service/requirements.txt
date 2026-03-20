@@ -1,51 +1,41 @@
 # Web framework
-fastapi
-uvicorn[standard]
-python-multipart
-pydantic>=2.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+pydantic>=2.7.0
 
 # Data processing
-polars
-pandas
-openpyxl
-pyarrow
+polars>=0.20.0
+openpyxl>=3.1.0
+pyarrow>=15.0.0
 
 # Document parsing
-PyMuPDF
-python-docx
-python-pptx
+PyMuPDF>=1.24.0
+python-docx>=1.1.0
+python-pptx>=0.6.23
 
 # SQL / query engine
-sqlparse
-duckdb
+sqlparse>=0.5.0
+duckdb>=0.10.0
 
-# Vector store & embeddings
-chromadb
-sentence-transformers
-
-# HTTP client (Ollama API calls)
-httpx
+# HTTP client (cloud LLM API calls)
+httpx>=0.27.0
 
 # File type detection
-python-magic
-chardet
+python-magic>=0.4.27
+chardet>=5.2.0
 
 # Image processing
-Pillow
-exifread
+Pillow>=10.3.0
 
 # Async file I/O
-aiofiles
-
-# Auth
-bcrypt
-python-jose[cryptography]
+aiofiles>=23.2.0
 
 # Config file parsing
-pyyaml
-toml
-xmltodict
+pyyaml>=6.0.1
+toml>=0.10.2
+xmltodict>=0.13.0
 
 # Utilities
-python-dateutil
-orjson
+python-dateutil>=2.9.0
+orjson>=3.10.0

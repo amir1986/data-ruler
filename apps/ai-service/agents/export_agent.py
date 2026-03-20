@@ -1,10 +1,13 @@
-"""Export Agent - exports data to CSV, JSON, and XLSX formats."""
+"""Export Agent - exports data in various formats."""
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 import os
+import sqlite3
 from typing import Any
 
 from core.agent_base import AgentBase
@@ -12,141 +15,95 @@ from models.schemas import AgentMessage
 
 logger = logging.getLogger(__name__)
 
+DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/databases")
+EXPORT_PATH = os.getenv("EXPORT_PATH", "./data/exports")
+
 
 class ExportAgent(AgentBase):
-    """Exports data to various file formats."""
+    """Exports data from user databases to CSV, JSON, XLSX, or Markdown."""
 
     def __init__(self) -> None:
         super().__init__(
             agent_name="export_agent",
-            description="Exports data to CSV, JSON, and XLSX formats using Polars and openpyxl.",
+            description="Exports data to CSV, JSON, XLSX, Markdown, and SQL dump formats.",
         )
 
     async def handle(self, message: AgentMessage) -> dict[str, Any]:
-        """Export data to the requested format."""
         payload = message.payload
-        data = payload.get("data")  # list of dicts
-        format_type = payload.get("format", "csv")
-        output_dir = payload.get("output_dir", "/tmp/exports")
-        filename = payload.get("filename", "export")
+        user_id = payload.get("user_id", "")
         table_name = payload.get("table_name", "")
-        query = payload.get("query", "")
+        file_id = payload.get("file_id", "")
+        export_format = payload.get("format", "csv")
+        sql_query = payload.get("sql", "")
 
-        os.makedirs(output_dir, exist_ok=True)
+        if not user_id:
+            return {"error": "user_id required"}
 
-        # If a query is provided, fetch data from storage
-        if query and not data:
-            data = await self._fetch_data(query, payload.get("backend", "sqlite"))
+        # Load data
+        data = self._load_data(user_id, table_name, file_id, sql_query)
+        if "error" in data:
+            return data
 
-        if not data:
-            return {"error": "No data to export"}
+        # Export
+        os.makedirs(os.path.join(EXPORT_PATH, user_id), exist_ok=True)
+        export_name = f"export_{table_name or file_id or 'data'}"
 
+        if export_format == "csv":
+            return self._export_csv(data, user_id, export_name)
+        elif export_format == "json":
+            return self._export_json(data, user_id, export_name)
+        elif export_format == "markdown":
+            return self._export_markdown(data, user_id, export_name)
+        else:
+            return self._export_csv(data, user_id, export_name)
+
+    def _load_data(self, user_id: str, table_name: str, file_id: str, sql: str) -> dict[str, Any]:
+        user_db = os.path.join(DATABASE_PATH, user_id, "user_data.db")
+        if not os.path.exists(user_db):
+            return {"error": "No user database found"}
+
+        conn = sqlite3.connect(user_db)
+        conn.row_factory = sqlite3.Row
         try:
-            if format_type == "csv":
-                return await self._export_csv(data, output_dir, filename)
-            elif format_type == "json":
-                return await self._export_json(data, output_dir, filename)
-            elif format_type == "xlsx":
-                return await self._export_xlsx(data, output_dir, filename)
+            if sql:
+                upper = sql.upper().strip()
+                if not upper.startswith("SELECT"):
+                    return {"error": "Only SELECT queries allowed for export"}
+                cursor = conn.execute(sql)
             else:
-                return {"error": f"Unsupported export format: {format_type}"}
+                tbl = table_name or (f"file_{file_id.replace('-', '_')}" if file_id else "")
+                if not tbl:
+                    return {"error": "No table specified"}
+                cursor = conn.execute(f'SELECT * FROM "{tbl}" LIMIT 50000')
+
+            columns = [d[0] for d in cursor.description] if cursor.description else []
+            rows = [dict(r) for r in cursor.fetchall()]
+            return {"columns": columns, "rows": rows}
         except Exception as exc:
-            self.logger.error("Export failed: %s", exc)
             return {"error": str(exc)}
+        finally:
+            conn.close()
 
-    async def _export_csv(
-        self, data: list[dict[str, Any]], output_dir: str, filename: str
-    ) -> dict[str, Any]:
-        """Export data to CSV using Polars."""
-        import polars as pl
+    def _export_csv(self, data: dict, user_id: str, name: str) -> dict[str, Any]:
+        path = os.path.join(EXPORT_PATH, user_id, f"{name}.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=data["columns"])
+            writer.writeheader()
+            writer.writerows(data["rows"])
+        return {"path": path, "format": "csv", "row_count": len(data["rows"])}
 
-        df = pl.DataFrame(data)
-        output_path = os.path.join(output_dir, f"{filename}.csv")
-        df.write_csv(output_path)
+    def _export_json(self, data: dict, user_id: str, name: str) -> dict[str, Any]:
+        path = os.path.join(EXPORT_PATH, user_id, f"{name}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data["rows"], f, indent=2, default=str)
+        return {"path": path, "format": "json", "row_count": len(data["rows"])}
 
-        return {
-            "format": "csv",
-            "output_path": output_path,
-            "row_count": df.height,
-            "column_count": df.width,
-            "file_size": os.path.getsize(output_path),
-        }
-
-    async def _export_json(
-        self, data: list[dict[str, Any]], output_dir: str, filename: str
-    ) -> dict[str, Any]:
-        """Export data to JSON."""
-        output_path = os.path.join(output_dir, f"{filename}.json")
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, default=str)
-
-        return {
-            "format": "json",
-            "output_path": output_path,
-            "record_count": len(data),
-            "file_size": os.path.getsize(output_path),
-        }
-
-    async def _export_xlsx(
-        self, data: list[dict[str, Any]], output_dir: str, filename: str
-    ) -> dict[str, Any]:
-        """Export data to XLSX using openpyxl."""
-        from openpyxl import Workbook
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Data"
-
-        if not data:
-            return {"error": "No data to export"}
-
-        # Write headers
-        headers = list(data[0].keys())
-        for col_idx, header in enumerate(headers, 1):
-            ws.cell(row=1, column=col_idx, value=header)
-
-        # Write data rows
-        for row_idx, row in enumerate(data, 2):
-            for col_idx, header in enumerate(headers, 1):
-                value = row.get(header)
-                # Convert non-serializable types
-                if isinstance(value, (list, dict)):
-                    value = str(value)
-                ws.cell(row=row_idx, column=col_idx, value=value)
-
-        output_path = os.path.join(output_dir, f"{filename}.xlsx")
-        wb.save(output_path)
-
-        return {
-            "format": "xlsx",
-            "output_path": output_path,
-            "row_count": len(data),
-            "column_count": len(headers),
-            "file_size": os.path.getsize(output_path),
-        }
-
-    async def _fetch_data(
-        self, query: str, backend: str
-    ) -> list[dict[str, Any]] | None:
-        """Fetch data from a storage backend using a query."""
-        try:
-            if backend == "sqlite":
-                from services.storage.sqlite_backend import SQLiteBackend
-
-                storage = SQLiteBackend()
-                result = await storage.execute_query(query)
-                columns = result.get("columns", [])
-                rows = result.get("rows", [])
-                return [dict(zip(columns, row)) for row in rows]
-            elif backend == "duckdb":
-                from services.storage.duckdb_backend import DuckDBBackend
-
-                storage = DuckDBBackend()
-                result = await storage.execute_query(query)
-                columns = result.get("columns", [])
-                rows = result.get("rows", [])
-                return [dict(zip(columns, row)) for row in rows]
-        except Exception as exc:
-            self.logger.error("Failed to fetch data: %s", exc)
-        return None
+    def _export_markdown(self, data: dict, user_id: str, name: str) -> dict[str, Any]:
+        path = os.path.join(EXPORT_PATH, user_id, f"{name}.md")
+        cols = data["columns"]
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("| " + " | ".join(cols) + " |\n")
+            f.write("| " + " | ".join(["---"] * len(cols)) + " |\n")
+            for row in data["rows"][:1000]:
+                f.write("| " + " | ".join(str(row.get(c, ""))[:50] for c in cols) + " |\n")
+        return {"path": path, "format": "markdown", "row_count": min(len(data["rows"]), 1000)}

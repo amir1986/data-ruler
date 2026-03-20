@@ -1,22 +1,41 @@
+# Dependencies
 node_modules/
-.next/
+.venv/
 __pycache__/
 *.pyc
-.env
-.env.local
-data/uploads/
-data/databases/
-data/vectors/
-data/thumbnails/
-data/transcriptions/
-data/exports/
-*.db
-*.sqlite
-*.sqlite3
-*.duckdb
-.DS_Store
+*.pyo
+
+# Build outputs
+.next/
 dist/
 build/
 *.egg-info/
-.venv/
-venv/
+
+# Data directories
+data/databases/
+data/uploads/
+data/vectors/
+data/thumbnails/
+data/exports/
+data/transcriptions/
+!data/.gitkeep
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

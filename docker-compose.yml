@@ -26,34 +26,27 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      # Cloud LLM keys (pass from host .env)
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - HF_API_TOKEN=${HF_API_TOKEN:-}
+      # Model overrides
+      - GROQ_CHAT_MODEL=${GROQ_CHAT_MODEL:-llama-3.3-70b-versatile}
+      - GROQ_CODE_MODEL=${GROQ_CODE_MODEL:-llama-3.3-70b-versatile}
+      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-llama-3.1-8b-instant}
+      - OPENROUTER_CHAT_MODEL=${OPENROUTER_CHAT_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      - HF_CHAT_MODEL=${HF_CHAT_MODEL:-meta-llama/Llama-3.1-8B-Instruct}
+      - HF_EMBED_MODEL=${HF_EMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      # Storage
       - DATABASE_PATH=/data/databases
       - UPLOAD_PATH=/data/uploads
       - VECTOR_PATH=/data/vectors
       - THUMBNAIL_PATH=/data/thumbnails
-      - TRANSCRIPTION_PATH=/data/transcriptions
       - EXPORT_PATH=/data/exports
+      - LLM_TIMEOUT=120
     volumes:
       - app-data:/data
-    depends_on:
-      - ollama
     restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 volumes:
   app-data:
-  ollama-data:

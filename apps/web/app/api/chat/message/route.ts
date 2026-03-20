@@ -28,15 +28,22 @@ export async function POST(req: NextRequest) {
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(userMsgId, user.id, 'user', message, contextFileId || null, contextDashboardId || null);
 
+    // Get conversation history for context
+    const history = db.prepare(
+      `SELECT role, content FROM chat_messages
+       WHERE user_id = ? ORDER BY created_at DESC LIMIT 20`
+    ).all(user.id) as { role: string; content: string }[];
+
     // Forward to AI service and stream response
-    const aiResponse = await fetch(`${AI_SERVICE_URL}/chat`, {
+    const aiResponse = await fetch(`${AI_SERVICE_URL}/api/chat/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId: user.id,
         message,
-        contextFileId,
-        contextDashboardId,
+        user_id: user.id,
+        context_file_id: contextFileId || null,
+        context_dashboard_id: contextDashboardId || null,
+        conversation_history: history.reverse(),
       }),
     });
 
