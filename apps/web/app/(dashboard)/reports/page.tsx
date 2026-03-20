@@ -9,64 +9,62 @@ import {
   Clock,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
-const reportTemplates = [
-  {
-    title: 'Executive Summary',
-    description:
-      'High-level overview of data quality metrics, key insights, and actionable recommendations for stakeholders.',
-    icon: FileText,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
-  },
-  {
-    title: 'Data Deep-Dive',
-    description:
-      'Comprehensive analysis of dataset structure, distributions, anomalies, and detailed profiling results.',
-    icon: BarChart3,
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/10',
-  },
-  {
-    title: 'Monthly Report',
-    description:
-      'Periodic summary of data ingestion, quality trends, processing activity, and month-over-month changes.',
-    icon: Calendar,
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-  },
-  {
-    title: 'Comparison Report',
-    description:
-      'Side-by-side comparison of multiple datasets or time periods, highlighting differences and correlations.',
-    icon: GitCompare,
-    color: 'text-orange-400',
-    bgColor: 'bg-orange-500/10',
-  },
-  {
-    title: 'Quick Brief',
-    description:
-      'Auto-generated one-page summary of a single dataset with key statistics and AI-powered insights.',
-    icon: Zap,
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/10',
-  },
-];
+import { useLanguageStore } from '@/stores/language-store';
 
 export default function ReportsPage() {
+  const { t } = useLanguageStore();
+
+  const reportTemplates = [
+    {
+      title: t.reports.executiveSummary,
+      description: t.reports.executiveSummaryDesc,
+      icon: FileText,
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+    },
+    {
+      title: t.reports.dataDeepDive,
+      description: t.reports.dataDeepDiveDesc,
+      icon: BarChart3,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+    },
+    {
+      title: t.reports.monthlyReport,
+      description: t.reports.monthlyReportDesc,
+      icon: Calendar,
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+    },
+    {
+      title: t.reports.comparisonReport,
+      description: t.reports.comparisonReportDesc,
+      icon: GitCompare,
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500/10',
+    },
+    {
+      title: t.reports.quickBrief,
+      description: t.reports.quickBriefDesc,
+      icon: Zap,
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500/10',
+    },
+  ];
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-zinc-800 px-6 py-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">Reports</h1>
+          <h1 className="text-2xl font-bold text-white">{t.reports.title}</h1>
           <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
-            <Clock className="h-3 w-3 mr-1" />
-            Coming Soon
+            <Clock className="h-3 w-3 me-1" />
+            {t.reports.comingSoon}
           </Badge>
         </div>
         <p className="text-sm text-zinc-400 mt-1">
-          Generate professional reports from your data analysis
+          {t.reports.subtitle}
         </p>
       </div>
 
@@ -77,18 +75,16 @@ export default function ReportsPage() {
             <FileText className="h-8 w-8 text-blue-400" />
           </div>
           <h2 className="text-xl font-semibold text-white mb-2">
-            Reports are coming soon
+            {t.reports.comingSoonTitle}
           </h2>
           <p className="text-zinc-400 max-w-md mx-auto">
-            We are building powerful report generation capabilities. Soon you will be able
-            to create beautiful, AI-powered reports from your data with just a few
-            clicks.
+            {t.reports.comingSoonDesc}
           </p>
         </div>
 
         {/* Template previews */}
         <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
-          Report Templates
+          {t.reports.reportTemplates}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {reportTemplates.map((template) => (

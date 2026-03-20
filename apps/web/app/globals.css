@@ -108,3 +108,60 @@
     background-color: hsl(var(--muted-foreground) / 0.5);
   }
 }
+
+/* RTL support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+/* Flip borders for RTL */
+[dir="rtl"] .border-l {
+  border-left: 0;
+  border-right-width: 1px;
+}
+
+[dir="rtl"] .border-r {
+  border-right: 0;
+  border-left-width: 1px;
+}
+
+/* Flip fixed positioning for RTL */
+[dir="rtl"] .right-6 {
+  right: auto;
+  left: 1.5rem;
+}
+
+[dir="rtl"] .left-3 {
+  left: auto;
+  right: 0.75rem;
+}
+
+/* Flip absolute positioning for RTL */
+[dir="rtl"] .right-2 {
+  right: auto;
+  left: 0.5rem;
+}
+
+[dir="rtl"] .left-2 {
+  left: auto;
+  right: 0.5rem;
+}
+
+[dir="rtl"] .right-3 {
+  right: auto;
+  left: 0.75rem;
+}
+
+/* Flip padding for RTL */
+[dir="rtl"] .pl-9 {
+  padding-left: 0;
+  padding-right: 2.25rem;
+}

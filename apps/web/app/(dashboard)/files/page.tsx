@@ -47,6 +47,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useLanguageStore } from '@/stores/language-store';
 
 // --- Helpers ---
 
@@ -103,6 +104,7 @@ export default function FilesPage() {
     clearSelection,
   } = useFileStore();
   const { setContextFile, setOpen: setChatOpen } = useChatStore();
+  const { t } = useLanguageStore();
 
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
@@ -179,9 +181,9 @@ export default function FilesPage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-2xl font-bold text-white">Files</h1>
+        <h1 className="text-2xl font-bold text-white">{t.files.title}</h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Upload, manage, and analyze your data files
+          {t.files.subtitle}
         </p>
       </div>
 
@@ -193,7 +195,7 @@ export default function FilesPage() {
             className="flex items-center gap-1 hover:text-white transition-colors"
           >
             <Home className="h-4 w-4" />
-            <span>Home</span>
+            <span>{t.files.home}</span>
           </button>
           {folderParts.map((part, i) => (
             <span key={i} className="flex items-center gap-1">
@@ -222,16 +224,16 @@ export default function FilesPage() {
           <input {...getInputProps()} />
           <Upload className="h-8 w-8 mx-auto text-zinc-500 mb-2" />
           {uploading ? (
-            <p className="text-blue-400 font-medium">Uploading files...</p>
+            <p className="text-blue-400 font-medium">{t.files.uploading}</p>
           ) : isDragActive ? (
-            <p className="text-blue-400 font-medium">Drop files here...</p>
+            <p className="text-blue-400 font-medium">{t.files.dropHere}</p>
           ) : (
             <>
               <p className="text-zinc-300 font-medium">
-                Drag & drop files here, or click to browse
+                {t.files.dragDrop}
               </p>
               <p className="text-zinc-500 text-sm mt-1">
-                Supports CSV, Excel, JSON, Parquet, images, and more
+                {t.files.supportedFormats}
               </p>
             </>
           )}
@@ -265,7 +267,7 @@ export default function FilesPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search files..."
+              placeholder={t.files.searchPlaceholder}
               className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500"
             />
           </div>
@@ -280,10 +282,10 @@ export default function FilesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-zinc-900 border-zinc-800">
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="size">Size</SelectItem>
-              <SelectItem value="date">Date</SelectItem>
-              <SelectItem value="type">Type</SelectItem>
+              <SelectItem value="name">{t.files.name}</SelectItem>
+              <SelectItem value="size">{t.files.size}</SelectItem>
+              <SelectItem value="date">{t.files.date}</SelectItem>
+              <SelectItem value="type">{t.files.type}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -307,7 +309,7 @@ export default function FilesPage() {
             <SelectContent className="bg-zinc-900 border-zinc-800">
               {categories.map((c) => (
                 <SelectItem key={c} value={c}>
-                  {c === 'all' ? 'All types' : c.charAt(0).toUpperCase() + c.slice(1)}
+                  {c === 'all' ? t.files.allTypes : c.charAt(0).toUpperCase() + c.slice(1)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -317,15 +319,15 @@ export default function FilesPage() {
           {selectedFiles.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-sm text-zinc-400">
-                {selectedFiles.size} selected
+                {selectedFiles.size} {t.files.selected}
               </span>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={handleDeleteSelected}
               >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Delete
+                <Trash2 className="h-4 w-4 me-1" />
+                {t.delete}
               </Button>
               <Button
                 variant="ghost"
@@ -333,7 +335,7 @@ export default function FilesPage() {
                 onClick={clearSelection}
                 className="text-zinc-400"
               >
-                Clear
+                {t.clear}
               </Button>
             </div>
           )}
@@ -349,9 +351,9 @@ export default function FilesPage() {
         ) : filteredFiles.length === 0 ? (
           <div className="text-center py-16">
             <FolderOpen className="h-12 w-12 mx-auto text-zinc-600 mb-3" />
-            <p className="text-zinc-400 font-medium">No files found</p>
+            <p className="text-zinc-400 font-medium">{t.files.noFiles}</p>
             <p className="text-zinc-500 text-sm mt-1">
-              {search ? 'Try a different search term' : 'Upload some files to get started'}
+              {search ? t.files.tryDifferentSearch : t.files.uploadToStart}
             </p>
           </div>
         ) : viewMode === 'list' ? (
@@ -375,26 +377,26 @@ export default function FilesPage() {
                       }}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Name
+                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    {t.files.name}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider hidden md:table-cell">
-                    Type
+                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden md:table-cell">
+                    {t.files.type}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
-                    Size
+                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
+                    {t.files.size}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
-                    Date
+                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
+                    {t.files.date}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider hidden md:table-cell">
-                    Status
+                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden md:table-cell">
+                    {t.files.status}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider hidden xl:table-cell">
-                    Quality
+                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden xl:table-cell">
+                    {t.files.quality}
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Actions
+                  <th className="px-4 py-3 text-end text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    {t.files.actions}
                   </th>
                 </tr>
               </thead>
@@ -577,26 +579,26 @@ export default function FilesPage() {
           <DialogHeader>
             <DialogTitle className="text-white">{detailFile?.original_name}</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              File details and metadata
+              {t.files.fileDetails}
             </DialogDescription>
           </DialogHeader>
           {detailFile && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">Type</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.type}</p>
                   <p className="text-zinc-200 mt-1">{detailFile.file_type}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">Category</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.category}</p>
                   <p className="text-zinc-200 mt-1 capitalize">{detailFile.file_category}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">Size</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.size}</p>
                   <p className="text-zinc-200 mt-1">{formatBytes(detailFile.size_bytes)}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">Status</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.status}</p>
                   <span
                     className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium mt-1 ${getStatusColor(
                       detailFile.processing_status
@@ -606,22 +608,22 @@ export default function FilesPage() {
                   </span>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">Created</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.created}</p>
                   <p className="text-zinc-200 mt-1">
                     {format(new Date(detailFile.created_at), 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">Quality</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.quality}</p>
                   <p className="text-zinc-200 mt-1">
                     {detailFile.quality_score !== null
                       ? `${detailFile.quality_score}%`
-                      : 'Not scored'}
+                      : t.files.notScored}
                   </p>
                 </div>
                 {detailFile.row_count !== null && (
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">Rows</p>
+                    <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.rows}</p>
                     <p className="text-zinc-200 mt-1">
                       {detailFile.row_count?.toLocaleString()}
                     </p>
@@ -629,7 +631,7 @@ export default function FilesPage() {
                 )}
                 {detailFile.column_count !== null && (
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">Columns</p>
+                    <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.columns}</p>
                     <p className="text-zinc-200 mt-1">{detailFile.column_count}</p>
                   </div>
                 )}
@@ -638,7 +640,7 @@ export default function FilesPage() {
               {detailFile.ai_summary && (
                 <div>
                   <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">
-                    AI Summary
+                    {t.files.aiSummary}
                   </p>
                   <p className="text-zinc-300 text-sm bg-zinc-800 rounded-lg p-3">
                     {detailFile.ai_summary}
@@ -648,7 +650,7 @@ export default function FilesPage() {
 
               {detailFile.tags.length > 0 && (
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Tags</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">{t.files.tags}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {detailFile.tags.map((tag) => (
                       <Badge
@@ -674,8 +676,8 @@ export default function FilesPage() {
                   onClick={() => handleAddToChat(detailFile)}
                   className="bg-blue-600 hover:bg-blue-500 text-white"
                 >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Add to Chat
+                  <MessageSquare className="h-4 w-4 me-2" />
+                  {t.files.addToChat}
                 </Button>
                 <Button
                   variant="destructive"
@@ -684,8 +686,8 @@ export default function FilesPage() {
                     setDetailFile(null);
                   }}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  <Trash2 className="h-4 w-4 me-2" />
+                  {t.delete}
                 </Button>
               </div>
             </div>
