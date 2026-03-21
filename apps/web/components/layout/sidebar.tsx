@@ -31,19 +31,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Separator } from "@/components/ui/separator"
+import { LanguageSwitcher } from "@/components/language-switcher"
+import { useLanguageStore } from "@/stores/language-store"
 
 interface NavItem {
-  label: string
+  labelKey: 'files' | 'dashboards' | 'notes' | 'reports' | 'settings'
   icon: React.ElementType
   href: string
 }
 
 const navItems: NavItem[] = [
-  { label: "Files", icon: Files, href: "/files" },
-  { label: "Dashboards", icon: LayoutDashboard, href: "/dashboards" },
-  { label: "Notes", icon: StickyNote, href: "/notes" },
-  { label: "Reports", icon: FileText, href: "/reports" },
-  { label: "Settings", icon: Settings, href: "/settings" },
+  { labelKey: "files", icon: Files, href: "/files" },
+  { labelKey: "dashboards", icon: LayoutDashboard, href: "/dashboards" },
+  { labelKey: "notes", icon: StickyNote, href: "/notes" },
+  { labelKey: "reports", icon: FileText, href: "/reports" },
+  { labelKey: "settings", icon: Settings, href: "/settings" },
 ]
 
 interface SidebarProps {
@@ -67,6 +69,7 @@ export function Sidebar({
   onNavigate,
   onLogout,
 }: SidebarProps) {
+  const { t, isRtl: isRtlDir } = useLanguageStore()
   const [isDark, setIsDark] = React.useState(false)
 
   React.useEffect(() => {
@@ -100,7 +103,7 @@ export function Sidebar({
           <Ruler className="h-6 w-6 shrink-0 text-electric" />
           {!collapsed && (
             <span className="text-lg font-semibold tracking-tight">
-              DataRuler
+              {t.appName}
             </span>
           )}
         </div>
@@ -109,6 +112,7 @@ export function Sidebar({
         <nav className="flex-1 space-y-1 p-2">
           {navItems.map((item) => {
             const isActive = activePath === item.href
+            const label = t.nav[item.labelKey]
             const button = (
               <Button
                 key={item.href}
@@ -122,7 +126,7 @@ export function Sidebar({
                 onClick={() => onNavigate?.(item.href)}
               >
                 <item.icon className="h-5 w-5 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && <span>{label}</span>}
               </Button>
             )
 
@@ -130,7 +134,7 @@ export function Sidebar({
               return (
                 <Tooltip key={item.href}>
                   <TooltipTrigger asChild>{button}</TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
+                  <TooltipContent side={isRtlDir ? "left" : "right"}>{label}</TooltipContent>
                 </Tooltip>
               )
             }
@@ -140,6 +144,22 @@ export function Sidebar({
         </nav>
 
         <Separator />
+
+        {/* Language switcher */}
+        <div className="p-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <LanguageSwitcher collapsed={collapsed} />
+              </div>
+            </TooltipTrigger>
+            {collapsed && (
+              <TooltipContent side={isRtlDir ? "left" : "right"}>
+                {t.settings.language}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
 
         {/* Theme toggle */}
         <div className="p-2">
@@ -159,13 +179,13 @@ export function Sidebar({
                   <Moon className="h-5 w-5 shrink-0" />
                 )}
                 {!collapsed && (
-                  <span>{isDark ? "Light mode" : "Dark mode"}</span>
+                  <span>{isDark ? t.nav.lightMode : t.nav.darkMode}</span>
                 )}
               </Button>
             </TooltipTrigger>
             {collapsed && (
-              <TooltipContent side="right">
-                {isDark ? "Light mode" : "Dark mode"}
+              <TooltipContent side={isRtlDir ? "left" : "right"}>
+                {isDark ? t.nav.lightMode : t.nav.darkMode}
               </TooltipContent>
             )}
           </Tooltip>
@@ -182,15 +202,15 @@ export function Sidebar({
                 onClick={() => onCollapsedChange?.(!collapsed)}
               >
                 {collapsed ? (
-                  <ChevronRight className="h-4 w-4" />
+                  isRtlDir ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
                 ) : (
-                  <ChevronLeft className="h-4 w-4" />
+                  isRtlDir ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />
                 )}
               </Button>
             </TooltipTrigger>
             {collapsed && (
-              <TooltipContent side="right">
-                Expand sidebar
+              <TooltipContent side={isRtlDir ? "left" : "right"}>
+                {t.nav.expandSidebar}
               </TooltipContent>
             )}
           </Tooltip>
@@ -222,7 +242,7 @@ export function Sidebar({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              side={collapsed ? "right" : "top"}
+              side={collapsed ? (isRtlDir ? "left" : "right") : "top"}
               align="start"
               className="w-56"
             >
@@ -232,8 +252,8 @@ export function Sidebar({
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
+                <LogOut className="me-2 h-4 w-4" />
+                {t.nav.logOut}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

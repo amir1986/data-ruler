@@ -35,64 +35,8 @@ import {
   Download,
   RefreshCw,
 } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language-store';
 import { format } from 'date-fns';
-
-const reportTemplates = [
-  {
-    id: 'executive_summary',
-    title: 'Executive Summary',
-    description:
-      'High-level overview of data quality metrics, key insights, and actionable recommendations for stakeholders.',
-    icon: FileText,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/30',
-  },
-  {
-    id: 'data_deep_dive',
-    title: 'Data Deep-Dive',
-    description:
-      'Comprehensive analysis of dataset structure, distributions, anomalies, and detailed profiling results.',
-    icon: BarChart3,
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/10',
-    borderColor: 'border-purple-500/30',
-  },
-  {
-    id: 'monthly_report',
-    title: 'Monthly Report',
-    description:
-      'Periodic summary of data ingestion, quality trends, processing activity, and month-over-month changes.',
-    icon: Calendar,
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/30',
-  },
-  {
-    id: 'comparison_report',
-    title: 'Comparison Report',
-    description:
-      'Side-by-side comparison of multiple datasets or time periods, highlighting differences and correlations.',
-    icon: GitCompare,
-    color: 'text-orange-400',
-    bgColor: 'bg-orange-500/10',
-    borderColor: 'border-orange-500/30',
-  },
-  {
-    id: 'quick_brief',
-    title: 'Quick Brief',
-    description:
-      'Auto-generated one-page summary of a single dataset with key statistics and AI-powered insights.',
-    icon: Zap,
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/10',
-    borderColor: 'border-yellow-500/30',
-  },
-];
-
-function getTemplateInfo(templateId: string) {
-  return reportTemplates.find((t) => t.id === templateId) || reportTemplates[0];
-}
 
 function getStatusStyle(status: string) {
   const styles: Record<string, string> = {
@@ -105,6 +49,60 @@ function getStatusStyle(status: string) {
 }
 
 export default function ReportsPage() {
+  const { t } = useLanguageStore();
+
+  const reportTemplates = [
+    {
+      id: 'executive_summary',
+      title: t.reports.executiveSummary,
+      description: t.reports.executiveSummaryDesc,
+      icon: FileText,
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+      borderColor: 'border-blue-500/30',
+    },
+    {
+      id: 'data_deep_dive',
+      title: t.reports.dataDeepDive,
+      description: t.reports.dataDeepDiveDesc,
+      icon: BarChart3,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+      borderColor: 'border-purple-500/30',
+    },
+    {
+      id: 'monthly_report',
+      title: t.reports.monthlyReport,
+      description: t.reports.monthlyReportDesc,
+      icon: Calendar,
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      borderColor: 'border-green-500/30',
+    },
+    {
+      id: 'comparison_report',
+      title: t.reports.comparisonReport,
+      description: t.reports.comparisonReportDesc,
+      icon: GitCompare,
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500/10',
+      borderColor: 'border-orange-500/30',
+    },
+    {
+      id: 'quick_brief',
+      title: t.reports.quickBrief,
+      description: t.reports.quickBriefDesc,
+      icon: Zap,
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500/10',
+      borderColor: 'border-yellow-500/30',
+    },
+  ];
+
+  function getTemplateInfo(templateId: string) {
+    return reportTemplates.find((tmpl) => tmpl.id === templateId) || reportTemplates[0];
+  }
+
   const {
     reports,
     activeReport,
@@ -144,7 +142,6 @@ export default function ReportsPage() {
   };
 
   const handleGenerate = async (report: Report) => {
-    // Optimistically set status to generating
     await updateReport(report.id, {
       status: 'generating',
     } as Partial<Report>);
@@ -155,14 +152,11 @@ export default function ReportsPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        // Refresh the reports list to get updated content
         await fetchReports();
-        // If viewing this report, update the active view
         if (activeReport?.id === report.id) {
           setActiveReport(data.report);
         }
       } else {
-        // API returned error, set error status
         await updateReport(report.id, { status: 'error' } as Partial<Report>);
       }
     } catch {
@@ -171,7 +165,7 @@ export default function ReportsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Delete this report?')) {
+    if (confirm(t.reports.deleteReport)) {
       await deleteReport(id);
     }
   };
@@ -196,17 +190,17 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Reports</h1>
+          <h1 className="text-2xl font-bold text-white">{t.reports.title}</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Generate professional reports from your data analysis
+            {t.reports.subtitle}
           </p>
         </div>
         <Button
           onClick={() => setShowCreate(true)}
           className="bg-blue-600 hover:bg-blue-500 text-white"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          New Report
+          <Plus className="h-4 w-4 me-2" />
+          {t.reports.newReport}
         </Button>
       </div>
 
@@ -214,24 +208,24 @@ export default function ReportsPage() {
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search reports..."
-              className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500"
+              placeholder={t.reports.searchReports}
+              className="ps-9 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500"
             />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-800 text-zinc-300">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={t.reports.statusLabel} />
             </SelectTrigger>
             <SelectContent className="bg-zinc-900 border-zinc-800">
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="generating">Generating</SelectItem>
-              <SelectItem value="ready">Ready</SelectItem>
-              <SelectItem value="error">Error</SelectItem>
+              <SelectItem value="all">{t.reports.allStatuses}</SelectItem>
+              <SelectItem value="draft">{t.reports.draft}</SelectItem>
+              <SelectItem value="generating">{t.reports.generating}</SelectItem>
+              <SelectItem value="ready">{t.reports.ready}</SelectItem>
+              <SelectItem value="error">{t.reports.error}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -239,7 +233,7 @@ export default function ReportsPage() {
         {/* Report Templates (quick create) */}
         <div>
           <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
-            Quick Create from Template
+            {t.reports.quickCreate}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {reportTemplates.map((template) => (
@@ -249,7 +243,7 @@ export default function ReportsPage() {
                   setSelectedTemplate(template.id);
                   setShowCreate(true);
                 }}
-                className={`group rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left hover:border-zinc-700 transition-all hover:shadow-lg`}
+                className={`group rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-start hover:border-zinc-700 transition-all hover:shadow-lg`}
               >
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-lg ${template.bgColor} mb-3`}
@@ -270,7 +264,7 @@ export default function ReportsPage() {
         {/* Reports List */}
         <div>
           <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
-            Your Reports ({filteredReports.length})
+            {t.reports.yourReports} ({filteredReports.length})
           </h3>
 
           {loading ? (
@@ -284,21 +278,21 @@ export default function ReportsPage() {
               <FileText className="h-12 w-12 mx-auto text-zinc-600 mb-3" />
               <p className="text-zinc-400 font-medium">
                 {search || filterStatus !== 'all'
-                  ? 'No matching reports'
-                  : 'No reports yet'}
+                  ? t.reports.noMatchingReports
+                  : t.reports.noReportsYet}
               </p>
               <p className="text-zinc-500 text-sm mt-1">
                 {search || filterStatus !== 'all'
-                  ? 'Try different search or filter criteria'
-                  : 'Create a report using one of the templates above'}
+                  ? t.reports.tryDifferentCriteria
+                  : t.reports.createFromTemplate}
               </p>
               {!search && filterStatus === 'all' && (
                 <Button
                   onClick={() => setShowCreate(true)}
                   className="mt-4 bg-blue-600 hover:bg-blue-500 text-white"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Report
+                  <Plus className="h-4 w-4 me-2" />
+                  {t.reports.createFirstReport}
                 </Button>
               )}
             </div>
@@ -324,7 +318,7 @@ export default function ReportsPage() {
                         className={`${getStatusStyle(report.status)} border`}
                       >
                         {report.status === 'generating' && (
-                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          <RefreshCw className="h-3 w-3 me-1 animate-spin" />
                         )}
                         {report.status}
                       </Badge>
@@ -351,12 +345,12 @@ export default function ReportsPage() {
                     </div>
 
                     {/* Action buttons on hover */}
-                    <div className="absolute top-3 right-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-3 end-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {report.status === 'draft' && (
                         <button
                           onClick={() => handleGenerate(report)}
                           className="p-1.5 rounded-md text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 transition-colors"
-                          title="Generate report"
+                          title={t.reports.generateReport}
                         >
                           <Zap className="h-4 w-4" />
                         </button>
@@ -365,7 +359,7 @@ export default function ReportsPage() {
                         <button
                           onClick={() => setActiveReport(report)}
                           className="p-1.5 rounded-md text-zinc-500 hover:text-green-400 hover:bg-zinc-800 transition-colors"
-                          title="View report"
+                          title={t.reports.viewReport}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -376,7 +370,7 @@ export default function ReportsPage() {
                         e.stopPropagation();
                         handleDelete(report.id);
                       }}
-                      className="absolute top-3 right-3 p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-all"
+                      className="absolute top-3 end-3 p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-all"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -404,23 +398,23 @@ export default function ReportsPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-white">Create New Report</DialogTitle>
+            <DialogTitle className="text-white">{t.reports.createNewReport}</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Choose a template and data sources for your report
+              {t.reports.chooseTemplate}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {/* Template selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
-                Template
+                {t.reports.template}
               </label>
               <div className="grid grid-cols-1 gap-2">
                 {reportTemplates.map((template) => (
                   <button
                     key={template.id}
                     onClick={() => setSelectedTemplate(template.id)}
-                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                    className={`flex items-center gap-3 rounded-lg border p-3 text-start transition-colors ${
                       selectedTemplate === template.id
                         ? `${template.borderColor} ${template.bgColor}`
                         : 'border-zinc-800 hover:border-zinc-700'
@@ -449,7 +443,7 @@ export default function ReportsPage() {
             {/* Title */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
-                Title (optional)
+                {t.reports.titleOptional}
               </label>
               <Input
                 value={newTitle}
@@ -457,7 +451,7 @@ export default function ReportsPage() {
                 placeholder={
                   selectedTemplate
                     ? `${getTemplateInfo(selectedTemplate).title} - ${format(new Date(), 'MMM d, yyyy')}`
-                    : 'Report title...'
+                    : t.reports.reportTitlePlaceholder
                 }
                 className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500"
               />
@@ -467,7 +461,7 @@ export default function ReportsPage() {
             {readyFiles.length > 0 && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-300">
-                  Data Sources ({selectedFileIds.length} selected)
+                  {t.reports.dataSources} ({selectedFileIds.length} {t.reports.dataSourcesSelected})
                 </label>
                 <div className="max-h-40 overflow-auto rounded-lg border border-zinc-800 divide-y divide-zinc-800">
                   {readyFiles.map((file) => (
@@ -494,7 +488,7 @@ export default function ReportsPage() {
                       </span>
                       <Badge
                         variant="secondary"
-                        className="bg-zinc-800 text-zinc-400 text-[10px] ml-auto shrink-0"
+                        className="bg-zinc-800 text-zinc-400 text-[10px] ms-auto shrink-0"
                       >
                         {file.file_type}
                       </Badge>
@@ -502,8 +496,7 @@ export default function ReportsPage() {
                   ))}
                 </div>
                 <p className="text-xs text-zinc-600">
-                  Select files to include in the analysis. Leave empty to use
-                  all available data.
+                  {t.reports.dataSourcesHint}
                 </p>
               </div>
             )}
@@ -514,15 +507,15 @@ export default function ReportsPage() {
                 disabled={!selectedTemplate}
                 className="bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Report
+                <Plus className="h-4 w-4 me-2" />
+                {t.reports.createReport}
               </Button>
               <Button
                 variant="ghost"
                 onClick={() => setShowCreate(false)}
                 className="text-zinc-400"
               >
-                Cancel
+                {t.cancel}
               </Button>
             </div>
           </div>
@@ -541,7 +534,7 @@ export default function ReportsPage() {
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
               {activeReport &&
-                `${getTemplateInfo(activeReport.template).title} - Generated ${format(new Date(activeReport.updated_at), 'MMM d, yyyy h:mm a')}`}
+                `${getTemplateInfo(activeReport.template).title} - ${t.reports.generated} ${format(new Date(activeReport.updated_at), 'MMM d, yyyy h:mm a')}`}
             </DialogDescription>
           </DialogHeader>
           {activeReport && activeReport.content && (
@@ -575,7 +568,7 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Template
+                      {t.reports.template}
                     </p>
                     <p className="text-zinc-200 mt-1">
                       {getTemplateInfo(activeReport.template).title}
@@ -583,7 +576,7 @@ export default function ReportsPage() {
                   </div>
                   <div>
                     <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Status
+                      {t.reports.statusLabel}
                     </p>
                     <Badge
                       className={`${getStatusStyle(activeReport.status)} border mt-1`}
@@ -593,15 +586,15 @@ export default function ReportsPage() {
                   </div>
                   <div>
                     <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Data Sources
+                      {t.reports.dataSources}
                     </p>
                     <p className="text-zinc-200 mt-1">
-                      {activeReport.file_ids.length || 'All'} file(s)
+                      {activeReport.file_ids.length || t.reports.all} {t.reports.files}
                     </p>
                   </div>
                   <div>
                     <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Created
+                      {t.files.created}
                     </p>
                     <p className="text-zinc-200 mt-1">
                       {format(
@@ -616,7 +609,6 @@ export default function ReportsPage() {
               <div className="flex gap-2 pt-2">
                 <Button
                   onClick={() => {
-                    // Export as JSON
                     const blob = new Blob(
                       [JSON.stringify(activeReport.content, null, 2)],
                       { type: 'application/json' }
@@ -631,16 +623,16 @@ export default function ReportsPage() {
                   variant="outline"
                   className="border-zinc-700 text-zinc-300"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export JSON
+                  <Download className="h-4 w-4 me-2" />
+                  {t.reports.exportJson}
                 </Button>
                 <Button
                   onClick={() => handleGenerate(activeReport)}
                   variant="outline"
                   className="border-zinc-700 text-zinc-300"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate
+                  <RefreshCw className="h-4 w-4 me-2" />
+                  {t.reports.regenerate}
                 </Button>
                 <Button
                   variant="destructive"
@@ -649,8 +641,8 @@ export default function ReportsPage() {
                     setActiveReport(null);
                   }}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  <Trash2 className="h-4 w-4 me-2" />
+                  {t.delete}
                 </Button>
               </div>
             </div>

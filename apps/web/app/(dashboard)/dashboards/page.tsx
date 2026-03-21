@@ -15,6 +15,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useLanguageStore } from '@/stores/language-store';
 
 export default function DashboardsPage() {
   const router = useRouter();
@@ -25,13 +26,14 @@ export default function DashboardsPage() {
     createDashboard,
     deleteDashboard,
   } = useDashboardStore();
+  const { t } = useLanguageStore();
 
   useEffect(() => {
     fetchDashboards();
   }, [fetchDashboards]);
 
   const handleCreate = async () => {
-    const dashboard = await createDashboard('Untitled Dashboard');
+    const dashboard = await createDashboard(t.dashboards.untitledDashboard);
     if (dashboard) {
       router.push(`/dashboards/${dashboard.id}`);
     }
@@ -42,17 +44,17 @@ export default function DashboardsPage() {
       {/* Header */}
       <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboards</h1>
+          <h1 className="text-2xl font-bold text-white">{t.dashboards.title}</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Visualize and explore your data
+            {t.dashboards.subtitle}
           </p>
         </div>
         <Button
           onClick={handleCreate}
           className="bg-blue-600 hover:bg-blue-500 text-white"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Dashboard
+          <Plus className="h-4 w-4 me-2" />
+          {t.dashboards.createDashboard}
         </Button>
       </div>
 
@@ -66,16 +68,16 @@ export default function DashboardsPage() {
         ) : dashboards.length === 0 ? (
           <div className="text-center py-16">
             <LayoutDashboard className="h-12 w-12 mx-auto text-zinc-600 mb-3" />
-            <p className="text-zinc-400 font-medium">No dashboards yet</p>
+            <p className="text-zinc-400 font-medium">{t.dashboards.noDashboards}</p>
             <p className="text-zinc-500 text-sm mt-1">
-              Create a dashboard to start visualizing your data
+              {t.dashboards.createToStart}
             </p>
             <Button
               onClick={handleCreate}
               className="mt-4 bg-blue-600 hover:bg-blue-500 text-white"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Your First Dashboard
+              <Plus className="h-4 w-4 me-2" />
+              {t.dashboards.createFirst}
             </Button>
           </div>
         ) : (
@@ -92,8 +94,8 @@ export default function DashboardsPage() {
                   </div>
                   {dashboard.is_auto_generated && (
                     <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Auto
+                      <Sparkles className="h-3 w-3 me-1" />
+                      {t.dashboards.auto}
                     </Badge>
                   )}
                 </div>
@@ -110,7 +112,7 @@ export default function DashboardsPage() {
                 <div className="flex items-center gap-4 text-xs text-zinc-500 mt-auto pt-3 border-t border-zinc-800">
                   <span className="flex items-center gap-1">
                     <BarChart3 className="h-3 w-3" />
-                    {(dashboard.widgets || []).length} widget{(dashboard.widgets || []).length !== 1 ? 's' : ''}
+                    {(dashboard.widgets || []).length} {(dashboard.widgets || []).length !== 1 ? t.dashboards.widgets : t.dashboards.widget}
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
@@ -122,7 +124,7 @@ export default function DashboardsPage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm('Delete this dashboard?')) {
+                    if (confirm(t.dashboards.deleteDashboard)) {
                       deleteDashboard(dashboard.id);
                     }
                   }}

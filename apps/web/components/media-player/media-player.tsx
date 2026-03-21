@@ -4,6 +4,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2,
 } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language-store';
 
 interface TranscriptSegment {
   start: number;
@@ -27,6 +28,7 @@ function formatTime(seconds: number): string {
 }
 
 export function MediaPlayer({ src, type, transcript, title }: MediaPlayerProps) {
+  const { t } = useLanguageStore();
   const mediaRef = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -95,7 +97,7 @@ export function MediaPlayer({ src, type, transcript, title }: MediaPlayerProps) 
       ) : (
         <div className="h-24 flex items-center justify-center bg-zinc-800/50">
           <audio ref={mediaRef} src={src} muted={muted} />
-          <div className="text-zinc-500 text-sm">{title || 'Audio File'}</div>
+          <div className="text-zinc-500 text-sm">{title || t.media.audioFile}</div>
         </div>
       )}
 
@@ -142,20 +144,20 @@ export function MediaPlayer({ src, type, transcript, title }: MediaPlayerProps) 
       {transcript && transcript.length > 0 && (
         <div className="border-t border-zinc-800 max-h-48 overflow-y-auto">
           <div className="px-4 py-2 text-xs text-zinc-500 font-medium border-b border-zinc-800/50">
-            Transcript
+            {t.media.transcript}
           </div>
           <div className="p-3 space-y-1">
             {transcript.map((seg, i) => (
               <button
                 key={i}
                 onClick={() => seek(seg.start)}
-                className={`block w-full text-left px-2 py-1 rounded text-xs transition ${
+                className={`block w-full text-start px-2 py-1 rounded text-xs transition ${
                   i === activeSegment
                     ? 'bg-blue-500/20 text-blue-300'
                     : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
                 }`}
               >
-                <span className="font-mono text-zinc-600 mr-2">{formatTime(seg.start)}</span>
+                <span className="font-mono text-zinc-600 me-2">{formatTime(seg.start)}</span>
                 {seg.text}
               </button>
             ))}
