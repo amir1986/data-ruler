@@ -23,6 +23,7 @@ import {
   FileText,
   Settings,
 } from "lucide-react"
+import { useLanguageStore } from "@/stores/language-store"
 
 interface AppShellProps {
   children: React.ReactNode
@@ -46,6 +47,7 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [chatOpen, setChatOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
+  const { t } = useLanguageStore()
   const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage } = useChatStore()
   const chatMessages = chatStoreMessages.map(m => ({
     id: m.id,
@@ -73,11 +75,11 @@ export function AppShell({
   }
 
   const commandNavItems = [
-    { label: "Files", icon: Files, href: "/files" },
-    { label: "Dashboards", icon: LayoutDashboard, href: "/dashboards" },
-    { label: "Notes", icon: StickyNote, href: "/notes" },
-    { label: "Reports", icon: FileText, href: "/reports" },
-    { label: "Settings", icon: Settings, href: "/settings" },
+    { label: t.nav.files, icon: Files, href: "/files" },
+    { label: t.nav.dashboards, icon: LayoutDashboard, href: "/dashboards" },
+    { label: t.nav.notes, icon: StickyNote, href: "/notes" },
+    { label: t.nav.reports, icon: FileText, href: "/reports" },
+    { label: t.nav.settings, icon: Settings, href: "/settings" },
   ]
 
   return (
@@ -122,10 +124,10 @@ export function AppShell({
 
       {/* Command palette */}
       <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
-        <CommandInput placeholder="Type a command or search..." />
+        <CommandInput placeholder={t.command.placeholder} />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Navigation">
+          <CommandEmpty>{t.command.noResults}</CommandEmpty>
+          <CommandGroup heading={t.command.navigation}>
             {commandNavItems.map((item) => (
               <CommandItem
                 key={item.href}
@@ -134,21 +136,21 @@ export function AppShell({
                   setCommandOpen(false)
                 }}
               >
-                <item.icon className="mr-2 h-4 w-4" />
+                <item.icon className="me-2 h-4 w-4" />
                 <span>{item.label}</span>
               </CommandItem>
             ))}
           </CommandGroup>
           <CommandSeparator />
-          <CommandGroup heading="Actions">
+          <CommandGroup heading={t.command.actions}>
             <CommandItem
               onSelect={() => {
                 setChatOpen(true)
                 setCommandOpen(false)
               }}
             >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              <span>Open AI Assistant</span>
+              <MessageSquare className="me-2 h-4 w-4" />
+              <span>{t.chat.openAiAssistant}</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

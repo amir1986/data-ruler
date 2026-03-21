@@ -4,6 +4,7 @@ import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileUp, Loader2 } from 'lucide-react';
 import { useFileStore } from '@/stores/file-store';
+import { useLanguageStore } from '@/stores/language-store';
 
 const FILE_CATEGORY_ICONS: Record<string, string> = {
   tabular: 'Table',
@@ -50,6 +51,7 @@ function formatSize(bytes: number): string {
 
 export function UploadZone() {
   const { uploading, uploadFiles, uploadProgress } = useFileStore();
+  const { t } = useLanguageStore();
   const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
 
   const onDrop = useCallback(
@@ -93,13 +95,13 @@ export function UploadZone() {
           <div>
             <p className="text-sm font-medium text-zinc-300">
               {isDragActive
-                ? 'Drop files here...'
+                ? t.files.dropHere
                 : uploading
-                ? 'Uploading...'
-                : 'Drag & drop files here, or click to browse'}
+                ? t.files.uploading
+                : t.files.dragDrop}
             </p>
             <p className="text-xs text-zinc-500 mt-1">
-              Supports all file types up to 500MB each
+              {t.files.supportedAll}
             </p>
           </div>
         </div>

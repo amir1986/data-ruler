@@ -4,6 +4,7 @@ import React, { useState, useCallback } from 'react';
 import GridLayout, { Layout } from 'react-grid-layout';
 import { WidgetRenderer } from './widget-renderer';
 import { useDashboardStore, type Widget } from '@/stores/dashboard-store';
+import { useLanguageStore } from '@/stores/language-store';
 import { Plus, Edit3, Save, Download } from 'lucide-react';
 import 'react-grid-layout/css/styles.css';
 
@@ -15,6 +16,7 @@ interface DashboardGridProps {
 
 export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridProps) {
   const { updateDashboard, addWidget, removeWidget, setEditMode } = useDashboardStore();
+  const { t } = useLanguageStore();
   const [showAddModal, setShowAddModal] = useState(false);
 
   const layout: Layout[] = widgets.map((w) => ({
@@ -53,7 +55,7 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
       chart: {
         type: 'chart',
         chart_type: 'bar',
-        title: `Chart ${widgetCount + 1}`,
+        title: `${t.dashboards.chart} ${widgetCount + 1}`,
         config: { labels: ['A', 'B', 'C', 'D'], data: [40, 55, 30, 70] },
       },
       kpi: {
@@ -63,13 +65,13 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
       },
       table: {
         type: 'table',
-        title: `Table ${widgetCount + 1}`,
+        title: `${t.dashboards.table} ${widgetCount + 1}`,
         config: { columns: ['Column 1', 'Column 2'], rows: [] },
       },
       text: {
         type: 'text',
-        title: `Text ${widgetCount + 1}`,
-        config: { content: 'Enter your text here...' },
+        title: `${t.dashboards.text} ${widgetCount + 1}`,
+        config: { content: '' },
       },
     };
 
@@ -77,7 +79,7 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
     await addWidget(dashboardId, {
       ...preset,
       type: preset.type as Widget['type'],
-      title: preset.title || `Widget ${widgetCount + 1}`,
+      title: preset.title || `${t.dashboards.widget} ${widgetCount + 1}`,
       config: preset.config || {},
       layout: {
         x: (widgetCount * 4) % 12,
@@ -114,14 +116,14 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
             }`}
           >
             {editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-            {editMode ? 'Save Layout' : 'Edit'}
+            {editMode ? t.dashboards.saveLayout : t.dashboards.edit}
           </button>
           {editMode && (
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition"
             >
-              <Plus className="w-4 h-4" /> Add Widget
+              <Plus className="w-4 h-4" /> {t.dashboards.addWidget}
             </button>
           )}
         </div>
@@ -129,14 +131,14 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
           onClick={handleExport}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition"
         >
-          <Download className="w-4 h-4" /> Export
+          <Download className="w-4 h-4" /> {t.dashboards.export}
         </button>
       </div>
 
       {/* Grid */}
       {widgets.length === 0 ? (
         <div className="text-center py-24 border-2 border-dashed border-zinc-800 rounded-xl">
-          <p className="text-zinc-500 text-sm">No widgets yet</p>
+          <p className="text-zinc-500 text-sm">{t.dashboards.noWidgets}</p>
           <button
             onClick={() => {
               setEditMode(true);
@@ -144,7 +146,7 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
             }}
             className="mt-3 text-sm text-blue-400 hover:text-blue-300 transition"
           >
-            Add your first widget
+            {t.dashboards.addFirstWidget}
           </button>
         </div>
       ) : (
@@ -176,18 +178,18 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-lg">
-            <h3 className="text-lg font-semibold text-white mb-4">Add Widget</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t.dashboards.addWidget}</h3>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { type: 'chart', label: 'Chart', desc: 'Bar, line, pie, scatter...' },
-                { type: 'kpi', label: 'KPI Card', desc: 'Key metric with trend' },
-                { type: 'table', label: 'Data Table', desc: 'Sortable data table' },
-                { type: 'text', label: 'Text Block', desc: 'Rich text content' },
+                { type: 'chart', label: t.dashboards.chart, desc: t.dashboards.chartDesc },
+                { type: 'kpi', label: t.dashboards.kpiCard, desc: t.dashboards.kpiCardDesc },
+                { type: 'table', label: t.dashboards.table, desc: t.dashboards.tableDesc },
+                { type: 'text', label: t.dashboards.text, desc: t.dashboards.textDesc },
               ].map((item) => (
                 <button
                   key={item.type}
                   onClick={() => handleAddWidget(item.type)}
-                  className="text-left p-4 rounded-lg border border-zinc-700 hover:border-blue-500 hover:bg-blue-500/5 transition"
+                  className="text-start p-4 rounded-lg border border-zinc-700 hover:border-blue-500 hover:bg-blue-500/5 transition"
                 >
                   <p className="text-sm font-medium text-zinc-200">{item.label}</p>
                   <p className="text-xs text-zinc-500 mt-1">{item.desc}</p>
@@ -199,7 +201,7 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
                 onClick={() => setShowAddModal(false)}
                 className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition"
               >
-                Cancel
+                {t.cancel}
               </button>
             </div>
           </div>

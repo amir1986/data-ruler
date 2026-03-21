@@ -26,10 +26,14 @@ import {
   RefreshCw,
   Info,
   ExternalLink,
+  Languages,
 } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language-store';
+import type { Locale } from '@/lib/i18n';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
+  const { t, locale, setLocale } = useLanguageStore();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [isDark, setIsDark] = useState(true);
@@ -105,7 +109,7 @@ export default function SettingsPage() {
   };
 
   const handleClearCache = () => {
-    if (confirm('Clear all cached data? This cannot be undone.')) {
+    if (confirm(t.settings.clearCacheConfirm)) {
       // Clear local storage and caches
       localStorage.clear();
       if ('caches' in window) {
@@ -130,9 +134,9 @@ export default function SettingsPage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
+        <h1 className="text-2xl font-bold text-white">{t.settings.title}</h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Manage your account and application preferences
+          {t.settings.subtitle}
         </p>
       </div>
 
@@ -142,27 +146,27 @@ export default function SettingsPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <User className="h-5 w-5 text-zinc-400" />
-              <h2 className="text-lg font-semibold text-white">Profile</h2>
+              <h2 className="text-lg font-semibold text-white">{t.settings.profile}</h2>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-zinc-300">Display Name</Label>
+                <Label className="text-zinc-300">{t.settings.displayName}</Label>
                 <Input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your display name"
+                  placeholder={t.settings.displayNamePlaceholder}
                   className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-300">Email</Label>
+                <Label className="text-zinc-300">{t.settings.email}</Label>
                 <Input
                   value={email}
                   disabled
                   className="bg-zinc-800/50 border-zinc-700 text-zinc-500 cursor-not-allowed"
                 />
                 <p className="text-xs text-zinc-600">
-                  Email cannot be changed
+                  {t.settings.emailCannotChange}
                 </p>
               </div>
               <Button
@@ -172,18 +176,18 @@ export default function SettingsPage() {
               >
                 {saved ? (
                   <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Saved
+                    <Check className="h-4 w-4 me-2" />
+                    {t.settings.saved}
                   </>
                 ) : saving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
+                    <RefreshCw className="h-4 w-4 me-2 animate-spin" />
+                    {t.saving}
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
+                    <Save className="h-4 w-4 me-2" />
+                    {t.settings.saveChanges}
                   </>
                 )}
               </Button>
@@ -198,14 +202,14 @@ export default function SettingsPage() {
               ) : (
                 <Sun className="h-5 w-5 text-zinc-400" />
               )}
-              <h2 className="text-lg font-semibold text-white">Appearance</h2>
+              <h2 className="text-lg font-semibold text-white">{t.settings.appearance}</h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-white">Dark Mode</p>
+                  <p className="text-sm font-medium text-white">{t.settings.darkMode}</p>
                   <p className="text-xs text-zinc-500 mt-0.5">
-                    Toggle between dark and light themes
+                    {t.settings.toggleTheme}
                   </p>
                 </div>
                 <Switch
@@ -216,27 +220,54 @@ export default function SettingsPage() {
             </div>
           </section>
 
+          {/* Language */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Languages className="h-5 w-5 text-zinc-400" />
+              <h2 className="text-lg font-semibold text-white">{t.settings.language}</h2>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-white">{t.settings.languageLabel}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {t.settings.languageDesc}
+                  </p>
+                </div>
+                <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+                  <SelectTrigger className="w-[140px] bg-zinc-800 border-zinc-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                    <SelectItem value="en">{t.settings.english}</SelectItem>
+                    <SelectItem value="he">{t.settings.hebrew}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </section>
+
           {/* AI Configuration */}
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Brain className="h-5 w-5 text-zinc-400" />
-              <h2 className="text-lg font-semibold text-white">AI Configuration</h2>
+              <h2 className="text-lg font-semibold text-white">{t.settings.aiConfig}</h2>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-zinc-300">Ollama Base URL</Label>
+                <Label className="text-zinc-300">{t.settings.ollamaUrl}</Label>
                 <Input
                   value={ollamaUrl}
                   onChange={(e) => setOllamaUrl(e.target.value)}
-                  placeholder="http://localhost:11434"
+                  placeholder={t.settings.ollamaUrlPlaceholder}
                   className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500 font-mono text-sm"
                 />
                 <p className="text-xs text-zinc-600">
-                  The base URL for your Ollama instance (OLLAMA_BASE_URL)
+                  {t.settings.ollamaUrlDesc}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-300">Model Selection</Label>
+                <Label className="text-zinc-300">{t.settings.modelSelection}</Label>
                 <Select value={aiModel} onValueChange={setAiModel}>
                   <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                     <SelectValue />
@@ -253,7 +284,7 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-zinc-600">
-                  Choose which AI model powers your data analysis and chat
+                  {t.settings.modelDesc}
                 </p>
               </div>
             </div>
@@ -264,17 +295,17 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <HardDrive className="h-5 w-5 text-zinc-400" />
               <h2 className="text-lg font-semibold text-white">
-                Data Management
+                {t.settings.dataManagement}
               </h2>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">
-                    Storage Usage
+                    {t.settings.storageUsage}
                   </p>
                   <p className="text-xs text-zinc-500 mt-0.5">
-                    {storageUsed || 'Calculating...'}
+                    {storageUsed || t.settings.calculating}
                   </p>
                 </div>
                 {storageUsed && (
@@ -293,13 +324,13 @@ export default function SettingsPage() {
                   onClick={handleClearCache}
                   className="border-zinc-700 text-zinc-300 hover:text-red-400 hover:border-red-500/50"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Cache
+                  <Trash2 className="h-4 w-4 me-2" />
+                  {t.settings.clearCache}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={async () => {
-                    if (confirm('Reprocess all uploaded files? This may take a while.')) {
+                    if (confirm(t.settings.reprocessConfirm)) {
                       setReprocessing(true);
                       try {
                         await fetch('/api/processing/reprocess', { method: 'POST' });
@@ -313,13 +344,12 @@ export default function SettingsPage() {
                   disabled={reprocessing}
                   className="border-zinc-700 text-zinc-300 hover:text-blue-400 hover:border-blue-500/50"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${reprocessing ? 'animate-spin' : ''}`} />
-                  {reprocessing ? 'Reprocessing...' : 'Reprocess All Files'}
+                  <RefreshCw className={`h-4 w-4 me-2 ${reprocessing ? 'animate-spin' : ''}`} />
+                  {reprocessing ? t.settings.reprocessing : t.settings.reprocessAll}
                 </Button>
               </div>
               <p className="text-xs text-zinc-600 mt-2">
-                Clear Cache removes cached data and temporary files. Reprocess
-                re-analyzes all uploaded files with the current AI model.
+                {t.settings.cacheDesc}
               </p>
             </div>
           </section>
@@ -328,11 +358,11 @@ export default function SettingsPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Info className="h-5 w-5 text-zinc-400" />
-              <h2 className="text-lg font-semibold text-white">About</h2>
+              <h2 className="text-lg font-semibold text-white">{t.settings.about}</h2>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-zinc-300">App Version</p>
+                <p className="text-sm text-zinc-300">{t.settings.appVersion}</p>
                 <p className="text-sm font-mono text-zinc-400">0.1.0</p>
               </div>
               <div className="border-t border-zinc-800 pt-3 space-y-2">
@@ -343,7 +373,7 @@ export default function SettingsPage() {
                   className="flex items-center gap-2 text-sm text-zinc-400 hover:text-blue-400 transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  GitHub Repository
+                  {t.settings.githubRepo}
                 </a>
                 <a
                   href="https://github.com/data-ruler/data-ruler/issues"
@@ -352,7 +382,7 @@ export default function SettingsPage() {
                   className="flex items-center gap-2 text-sm text-zinc-400 hover:text-blue-400 transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Report an Issue
+                  {t.settings.reportIssue}
                 </a>
                 <a
                   href="https://github.com/data-ruler/data-ruler/wiki"
@@ -361,12 +391,12 @@ export default function SettingsPage() {
                   className="flex items-center gap-2 text-sm text-zinc-400 hover:text-blue-400 transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Documentation
+                  {t.settings.documentation}
                 </a>
               </div>
               <div className="border-t border-zinc-800 pt-3">
                 <p className="text-xs text-zinc-600">
-                  Data Ruler - AI-powered data analysis platform. Built with Next.js, Ollama, and love.
+                  {t.appDescription}
                 </p>
               </div>
             </div>

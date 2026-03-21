@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Database, ArrowRight } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language-store';
 
 interface TableNode {
   name: string;
@@ -29,6 +30,8 @@ interface ERDiagramProps {
 }
 
 export function ERDiagram({ tables, relationships }: ERDiagramProps) {
+  const { t } = useLanguageStore();
+
   // Simple grid layout for tables
   const cols = Math.ceil(Math.sqrt(tables.length));
   const tableWidth = 220;
@@ -47,9 +50,9 @@ export function ERDiagram({ tables, relationships }: ERDiagramProps) {
     <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-auto">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
         <Database className="w-4 h-4 text-blue-400" />
-        <span className="text-sm font-medium text-zinc-200">Entity Relationship Diagram</span>
+        <span className="text-sm font-medium text-zinc-200">{t.erDiagram.title}</span>
         <span className="text-xs text-zinc-500">
-          {tables.length} tables, {relationships.length} relationships
+          {tables.length} {t.erDiagram.tables}, {relationships.length} {t.erDiagram.relationships}
         </span>
       </div>
 

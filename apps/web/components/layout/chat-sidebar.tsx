@@ -8,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLanguageStore } from "@/stores/language-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +40,7 @@ export function ChatSidebar({
   onSendMessage,
   isLoading = false,
 }: ChatSidebarProps) {
+  const { t } = useLanguageStore()
   const [input, setInput] = React.useState("")
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
 
@@ -62,12 +64,12 @@ export function ChatSidebar({
   if (!open) return null
 
   return (
-    <aside className="flex h-full w-80 flex-col border-l bg-background">
+    <aside className="flex h-full w-80 flex-col border-s bg-background">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-electric" />
-          <span className="font-semibold text-sm">AI Assistant</span>
+          <span className="font-semibold text-sm">{t.chat.aiAssistant}</span>
           <Badge variant="secondary" className="text-xs">
             {context}
           </Badge>
@@ -88,10 +90,10 @@ export function ChatSidebar({
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground">
-              Ask me anything about your data.
+              {t.chat.askAboutData}
             </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
-              I can help with queries, analysis, and insights.
+              {t.chat.helpWith}
             </p>
           </div>
         ) : (
@@ -149,7 +151,7 @@ export function ChatSidebar({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your data..."
+            placeholder={t.chat.inputPlaceholder}
             className="text-sm"
             disabled={isLoading}
           />
