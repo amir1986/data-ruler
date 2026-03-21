@@ -46,6 +46,12 @@ Open http://localhost:3000 and create an account.
 
 Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), or [HuggingFace](https://huggingface.co/settings/tokens).
 
+## Deploy to a Domain
+
+1. In `.env`, set `NEXTAUTH_URL=https://yourdomain.com` and generate a strong `NEXTAUTH_SECRET`
+2. Point your domain's DNS A record to your server IP
+3. Put a reverse proxy (e.g. [Caddy](https://caddyserver.com/) or Nginx) in front of port 3000 to handle HTTPS
+
 ## Environment Variables
 
 ```bash
