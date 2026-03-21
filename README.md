@@ -146,6 +146,36 @@ Full report management with 5 templates (Executive Summary, Data Deep-Dive, Mont
 
 ![Reports](docs/screenshots/06-reports.png)
 
+#### Executive Summary Report
+
+High-level overview with KPI cards (total files, data volume, quality score, processing rate), data quality breakdown with per-file quality bars, and actionable recommendations for stakeholders.
+
+![Executive Summary Report](docs/screenshots/08-report-executive-summary.png)
+
+#### Data Deep-Dive Report
+
+Comprehensive technical analysis with schema analysis table (columns, rows, size per dataset), size distribution visualization, anomaly detection findings, and correlation analysis across datasets.
+
+![Data Deep-Dive Report](docs/screenshots/09-report-data-deep-dive.png)
+
+#### Monthly Report
+
+Periodic activity summary with processing pipeline stats (ingested, processed, errors, pending), category breakdown table, quality trends, and month-over-month ingestion metrics.
+
+![Monthly Report](docs/screenshots/10-report-monthly.png)
+
+#### Comparison Report
+
+Side-by-side dataset comparison table with format, category, size, rows, columns, quality, and status. Includes quality comparison bars, size and quality rankings, and statistical difference analysis.
+
+![Comparison Report](docs/screenshots/11-report-comparison.png)
+
+#### Quick Brief Report
+
+One-page dataset summary with primary file snapshot (name, format, size, rows, columns, quality bar), AI-generated insights per file, and key statistics overview.
+
+![Quick Brief Report](docs/screenshots/12-report-quick-brief.png)
+
 ### Settings (`/settings`)
 
 Profile management with server-persisted display name, dark/light theme toggle, AI model configuration (Ollama URL and model selection), server-side storage usage monitoring, cache clearing, and bulk file reprocessing.

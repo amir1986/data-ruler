@@ -36,6 +36,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import ReportViewer from '@/components/reports/report-viewer';
 
 const reportTemplates = [
   {
@@ -114,6 +115,7 @@ export default function ReportsPage() {
     updateReport,
     deleteReport,
     setActiveReport,
+    fetchReport,
   } = useReportsStore();
   const { files, fetchFiles } = useFileStore();
 
@@ -363,7 +365,7 @@ export default function ReportsPage() {
                       )}
                       {report.status === 'ready' && (
                         <button
-                          onClick={() => setActiveReport(report)}
+                          onClick={() => fetchReport(report.id)}
                           className="p-1.5 rounded-md text-zinc-500 hover:text-green-400 hover:bg-zinc-800 transition-colors"
                           title="View report"
                         >
@@ -386,7 +388,7 @@ export default function ReportsPage() {
                       className="absolute inset-0 rounded-xl"
                       onClick={() => {
                         if (report.status === 'ready') {
-                          setActiveReport(report);
+                          fetchReport(report.id);
                         } else if (report.status === 'draft') {
                           handleGenerate(report);
                         }
@@ -534,89 +536,23 @@ export default function ReportsPage() {
         open={!!activeReport}
         onOpenChange={(open) => !open && setActiveReport(null)}
       >
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-4xl max-h-[85vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-white text-xl">
               {activeReport?.title}
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
               {activeReport &&
-                `${getTemplateInfo(activeReport.template).title} - Generated ${format(new Date(activeReport.updated_at), 'MMM d, yyyy h:mm a')}`}
+                `Generated ${format(new Date(activeReport.updated_at), 'MMM d, yyyy h:mm a')} · ${activeReport.file_ids.length || 'All'} data source(s)`}
             </DialogDescription>
           </DialogHeader>
           {activeReport && activeReport.content && (
-            <div className="space-y-6">
-              {(activeReport.content as Record<string, unknown>).summary ? (
-                <div className="bg-zinc-800 rounded-lg p-4">
-                  <p className="text-sm text-zinc-300 leading-relaxed">
-                    {String(
-                      (activeReport.content as Record<string, unknown>).summary
-                    )}
-                  </p>
-                </div>
-              ) : null}
+            <div className="space-y-4">
+              <ReportViewer report={activeReport} />
 
-              {(
-                (activeReport.content as Record<string, unknown>)
-                  .sections as Array<{ title: string; content: string }>
-              )?.map((section, idx) => (
-                <div key={idx}>
-                  <h3 className="text-base font-semibold text-white mb-2">
-                    {section.title}
-                  </h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed whitespace-pre-line">
-                    {section.content}
-                  </p>
-                </div>
-              ))}
-
-              {/* Metadata */}
-              <div className="border-t border-zinc-800 pt-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Template
-                    </p>
-                    <p className="text-zinc-200 mt-1">
-                      {getTemplateInfo(activeReport.template).title}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Status
-                    </p>
-                    <Badge
-                      className={`${getStatusStyle(activeReport.status)} border mt-1`}
-                    >
-                      {activeReport.status}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Data Sources
-                    </p>
-                    <p className="text-zinc-200 mt-1">
-                      {activeReport.file_ids.length || 'All'} file(s)
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
-                      Created
-                    </p>
-                    <p className="text-zinc-200 mt-1">
-                      {format(
-                        new Date(activeReport.created_at),
-                        'MMM d, yyyy h:mm a'
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-3 border-t border-zinc-800">
                 <Button
                   onClick={() => {
-                    // Export as JSON
                     const blob = new Blob(
                       [JSON.stringify(activeReport.content, null, 2)],
                       { type: 'application/json' }
