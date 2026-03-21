@@ -27,23 +27,23 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-zinc-950">
+      <div className="flex h-screen bg-background">
         {/* Sidebar skeleton */}
-        <div className="w-60 border-r border-zinc-800 p-4 space-y-4">
-          <Skeleton className="h-8 w-32 bg-zinc-800" />
+        <div className="w-56 p-4 space-y-4 bg-sidebar">
+          <Skeleton className="h-8 w-32 bg-card" />
           <div className="space-y-2 mt-8">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full bg-zinc-800" />
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full bg-card" />
             ))}
           </div>
         </div>
         {/* Main content skeleton */}
         <div className="flex-1 p-8 space-y-4">
-          <Skeleton className="h-8 w-64 bg-zinc-800" />
-          <Skeleton className="h-4 w-96 bg-zinc-800" />
+          <Skeleton className="h-8 w-64 bg-card" />
+          <Skeleton className="h-4 w-96 bg-card" />
           <div className="grid grid-cols-3 gap-4 mt-8">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-40 bg-zinc-800 rounded-xl" />
+              <Skeleton key={i} className="h-40 bg-card rounded-xl" />
             ))}
           </div>
         </div>

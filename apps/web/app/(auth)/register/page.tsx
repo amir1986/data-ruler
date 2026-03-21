@@ -36,17 +36,17 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="absolute top-4 end-4">
         <LanguageSwitcher />
       </div>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">{t.appName}</h1>
-          <p className="text-zinc-400 mt-2">{t.appTagline}</p>
+          <p className="text-muted-foreground mt-2">{t.appTagline}</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
+        <div className="bg-card border border-border rounded-xl p-8">
           <h2 className="text-xl font-semibold text-white mb-6">{t.auth.createAccount}</h2>
 
           {error && (
@@ -64,7 +64,7 @@ export default function RegisterPage() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-3 py-2.5 bg-secondary border border-border rounded-lg text-white placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 placeholder={t.auth.displayNamePlaceholder}
               />
             </div>
@@ -77,7 +77,7 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-3 py-2.5 bg-secondary border border-border rounded-lg text-white placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 placeholder={t.auth.emailPlaceholder}
                 required
               />
@@ -91,7 +91,7 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-3 py-2.5 bg-secondary border border-border rounded-lg text-white placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 placeholder={t.auth.atLeast8Chars}
                 required
                 minLength={8}
@@ -101,15 +101,15 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition"
+              className="w-full py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-medium rounded-lg transition"
             >
               {loading ? t.auth.creatingAccount : t.auth.createAccount}
             </button>
           </form>
 
-          <p className="text-zinc-400 text-sm text-center mt-6">
+          <p className="text-muted-foreground text-sm text-center mt-6">
             {t.auth.hasAccount}{' '}
-            <Link href="/login" className="text-blue-400 hover:text-blue-300 transition">
+            <Link href="/login" className="text-primary hover:text-primary/80 transition">
               {t.auth.signIn}
             </Link>
           </p>

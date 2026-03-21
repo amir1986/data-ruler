@@ -6,7 +6,6 @@ import { useFileStore, type FileItem } from '@/stores/file-store';
 import { useChatStore } from '@/stores/chat-store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -15,13 +14,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   FileText,
   Table,
@@ -34,17 +26,18 @@ import {
   Globe,
   FileQuestion,
   Upload,
-  Search,
   Grid3X3,
   List,
   Trash2,
   Eye,
   MessageSquare,
   ChevronRight,
-  Home,
-  FolderOpen,
-  X,
+  ChevronLeft,
+  Download,
+  SlidersHorizontal,
   ArrowUpDown,
+  Check,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLanguageStore } from '@/stores/language-store';
@@ -74,14 +67,55 @@ function getCategoryIcon(category: string) {
   return icons[category] || FileQuestion;
 }
 
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    processing: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    ready: 'bg-green-500/20 text-green-400 border-green-500/30',
-    error: 'bg-red-500/20 text-red-400 border-red-500/30',
+function getCategoryStyle(category: string) {
+  const styles: Record<string, { bg: string; text: string; badge: string }> = {
+    document: { bg: 'bg-blue-500/15', text: 'text-blue-400', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+    tabular: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    database: { bg: 'bg-purple-500/15', text: 'text-purple-400', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+    image: { bg: 'bg-pink-500/15', text: 'text-pink-400', badge: 'bg-pink-500/20 text-pink-300 border-pink-500/30' },
+    video: { bg: 'bg-red-500/15', text: 'text-red-400', badge: 'bg-red-500/20 text-red-300 border-red-500/30' },
+    audio: { bg: 'bg-amber-500/15', text: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    archive: { bg: 'bg-zinc-500/15', text: 'text-zinc-400', badge: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' },
+    code: { bg: 'bg-cyan-500/15', text: 'text-cyan-400', badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+    geo: { bg: 'bg-orange-500/15', text: 'text-orange-400', badge: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
   };
-  return colors[status] || 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30';
+  return styles[category] || { bg: 'bg-zinc-500/15', text: 'text-zinc-400', badge: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' };
+}
+
+function getStatusDot(status: string) {
+  const dots: Record<string, string> = {
+    pending: 'bg-yellow-400',
+    processing: 'bg-purple-400',
+    ready: 'bg-emerald-400',
+    error: 'bg-red-400',
+  };
+  return dots[status] || 'bg-zinc-400';
+}
+
+function getStatusLabel(status: string, t: any) {
+  const labels: Record<string, string> = {
+    pending: t.files.queued,
+    processing: t.files.processing,
+    ready: t.files.processed,
+    error: t.files.failed,
+  };
+  return labels[status] || status;
+}
+
+function getStatusColor(status: string) {
+  const colors: Record<string, string> = {
+    pending: 'text-yellow-400',
+    processing: 'text-purple-400',
+    ready: 'text-emerald-400',
+    error: 'text-red-400',
+  };
+  return colors[status] || 'text-zinc-400';
+}
+
+function getQualityColor(score: number) {
+  if (score >= 80) return 'bg-emerald-500';
+  if (score >= 50) return 'bg-amber-500';
+  return 'bg-red-500';
 }
 
 type SortField = 'name' | 'size' | 'date' | 'type';
@@ -104,7 +138,7 @@ export default function FilesPage() {
     clearSelection,
   } = useFileStore();
   const { setContextFile, setOpen: setChatOpen } = useChatStore();
-  const { t } = useLanguageStore();
+  const { t, isRtl } = useLanguageStore();
 
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
@@ -172,200 +206,159 @@ export default function FilesPage() {
     setChatOpen(true);
   };
 
-  // Breadcrumb parts
-  const folderParts = currentFolder.split('/').filter(Boolean);
-
-  const categories = ['all', 'document', 'tabular', 'database', 'image', 'video', 'audio', 'archive', 'code', 'geo'];
-
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-2xl font-bold text-white">{t.files.title}</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          {t.files.subtitle}
-        </p>
-      </div>
-
-      <div className="flex-1 overflow-auto p-6 space-y-4">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm text-zinc-400">
-          <button
-            onClick={() => setCurrentFolder('/')}
-            className="flex items-center gap-1 hover:text-white transition-colors"
-          >
-            <Home className="h-4 w-4" />
-            <span>{t.files.home}</span>
-          </button>
-          {folderParts.map((part, i) => (
-            <span key={i} className="flex items-center gap-1">
-              <ChevronRight className="h-3 w-3" />
-              <button
-                onClick={() =>
-                  setCurrentFolder('/' + folderParts.slice(0, i + 1).join('/'))
-                }
-                className="hover:text-white transition-colors"
-              >
-                {part}
-              </button>
-            </span>
-          ))}
+      <div className="px-6 pt-5 pb-4">
+        <nav className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+          <span>{t.files.home}</span>
+          <span className="text-muted-foreground/50">/</span>
+          <span className="text-primary">{t.files.mainFiles}</span>
         </nav>
-
-        {/* Drop zone */}
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-            isDragActive
-              ? 'border-blue-500 bg-blue-500/10'
-              : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'
-          }`}
-        >
-          <input {...getInputProps()} />
-          <Upload className="h-8 w-8 mx-auto text-zinc-500 mb-2" />
-          {uploading ? (
-            <p className="text-blue-400 font-medium">{t.files.uploading}</p>
-          ) : isDragActive ? (
-            <p className="text-blue-400 font-medium">{t.files.dropHere}</p>
-          ) : (
-            <>
-              <p className="text-zinc-300 font-medium">
-                {t.files.dragDrop}
-              </p>
-              <p className="text-zinc-500 text-sm mt-1">
-                {t.files.supportedFormats}
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* View mode toggle */}
-          <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-900">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-white">{t.files.title}</h1>
+          <div className="flex items-center rounded-lg border border-border bg-card">
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-l-lg transition-colors ${
-                viewMode === 'list' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+              className={`p-2 rounded-s-lg transition-colors ${
+                viewMode === 'list' ? 'bg-secondary text-white' : 'text-muted-foreground hover:text-white'
               }`}
             >
               <List className="h-4 w-4" />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-r-lg transition-colors ${
-                viewMode === 'grid' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+              className={`p-2 rounded-e-lg transition-colors ${
+                viewMode === 'grid' ? 'bg-secondary text-white' : 'text-muted-foreground hover:text-white'
               }`}
             >
               <Grid3X3 className="h-4 w-4" />
             </button>
           </div>
+        </div>
+      </div>
 
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t.files.searchPlaceholder}
-              className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500"
-            />
+      <div className="flex-1 overflow-auto px-6 pb-6 space-y-4">
+        {/* Upload zone */}
+        <div
+          {...getRootProps()}
+          className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer ${
+            isDragActive
+              ? 'border-primary bg-primary/5'
+              : 'border-border hover:border-muted-foreground/30 bg-card/50'
+          }`}
+        >
+          <input {...getInputProps()} />
+          <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-secondary mb-3">
+            <Upload className="h-6 w-6 text-muted-foreground" />
+          </div>
+          {uploading ? (
+            <p className="text-primary font-medium">{t.files.uploading}</p>
+          ) : isDragActive ? (
+            <p className="text-primary font-medium">{t.files.dropHere}</p>
+          ) : (
+            <>
+              <p className="text-white font-semibold text-base mb-1">
+                {t.files.uploadGateway}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {t.files.dragDrop}{' '}
+                <span className="text-primary/80 underline underline-offset-2 cursor-pointer">
+                  {t.files.browseFiles}
+                </span>
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <span className="text-[10px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full border border-border text-muted-foreground">
+                  {t.files.supportedFormats}
+                </span>
+                <span className="text-[10px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full border border-border text-muted-foreground">
+                  {t.files.maxFileSize}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Select All */}
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded border-border bg-card"
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    filteredFiles.forEach((f) => {
+                      if (!selectedFiles.has(f.id)) toggleSelect(f.id);
+                    });
+                  } else {
+                    clearSelection();
+                  }
+                }}
+              />
+              {t.files.selectAll}
+            </label>
+
+            {/* Bulk actions */}
+            <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-white transition-colors">
+              <Download className="h-3.5 w-3.5" />
+              {t.files.bulkDownload}
+            </button>
+
+            {selectedFiles.size > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                className="flex items-center gap-1.5 text-sm text-red-400 hover:text-red-300 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t.delete} ({selectedFiles.size})
+              </button>
+            )}
           </div>
 
-          {/* Sort */}
-          <Select
-            value={sortField}
-            onValueChange={(v) => setSortField(v as SortField)}
-          >
-            <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-800 text-zinc-300">
-              <ArrowUpDown className="h-3.5 w-3.5 mr-2 text-zinc-500" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-800">
-              <SelectItem value="name">{t.files.name}</SelectItem>
-              <SelectItem value="size">{t.files.size}</SelectItem>
-              <SelectItem value="date">{t.files.date}</SelectItem>
-              <SelectItem value="type">{t.files.type}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-            className="text-zinc-400 hover:text-white"
-          >
-            <ArrowUpDown className="h-4 w-4" />
-          </Button>
-
-          {/* Category filter */}
-          <Select
-            value={filterCategory}
-            onValueChange={setFilterCategory}
-          >
-            <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-800 text-zinc-300">
-              <SelectValue placeholder={t.files.category} />
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-800">
-              {categories.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c === 'all' ? t.files.allTypes : c.charAt(0).toUpperCase() + c.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Bulk actions */}
-          {selectedFiles.size > 0 && (
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-sm text-zinc-400">
-                {selectedFiles.size} {t.files.selected}
-              </span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteSelected}
-              >
-                <Trash2 className="h-4 w-4 me-1" />
-                {t.delete}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearSelection}
-                className="text-zinc-400"
-              >
-                {t.clear}
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {t.files.filters}
+            </button>
+            <button
+              onClick={() => {
+                setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-secondary rounded-lg border border-border hover:bg-secondary/80 transition-colors"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {t.files.sortNewest}
+            </button>
+          </div>
         </div>
 
         {/* Loading skeletons */}
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full bg-zinc-800 rounded-lg" />
+              <Skeleton key={i} className="h-16 w-full bg-card rounded-lg" />
             ))}
           </div>
         ) : filteredFiles.length === 0 ? (
-          <div className="text-center py-16">
-            <FolderOpen className="h-12 w-12 mx-auto text-zinc-600 mb-3" />
-            <p className="text-zinc-400 font-medium">{t.files.noFiles}</p>
-            <p className="text-zinc-500 text-sm mt-1">
+          <div className="text-center py-16 rounded-xl border border-border bg-card">
+            <Upload className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+            <p className="text-muted-foreground font-medium">{t.files.noFiles}</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">
               {search ? t.files.tryDifferentSearch : t.files.uploadToStart}
             </p>
           </div>
         ) : viewMode === 'list' ? (
           /* List view */
-          <div className="rounded-xl border border-zinc-800 overflow-hidden">
+          <div className="rounded-xl border border-border overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/80">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider w-8">
+                <tr className="border-b border-border bg-card">
+                  <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-8">
                     <input
                       type="checkbox"
-                      className="rounded border-zinc-600 bg-zinc-800"
+                      className="rounded border-border bg-secondary"
                       onChange={(e) => {
                         if (e.target.checked) {
                           filteredFiles.forEach((f) => {
@@ -377,36 +370,34 @@ export default function FilesPage() {
                       }}
                     />
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    {t.files.name}
+                  <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t.files.fileName}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden md:table-cell">
-                    {t.files.type}
+                  <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">
+                    {t.files.category}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">
                     {t.files.size}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
-                    {t.files.date}
+                  <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden xl:table-cell">
+                    {t.files.qualityScore}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden md:table-cell">
+                  <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">
                     {t.files.status}
                   </th>
-                  <th className="px-4 py-3 text-start text-xs font-medium text-zinc-500 uppercase tracking-wider hidden xl:table-cell">
-                    {t.files.quality}
-                  </th>
-                  <th className="px-4 py-3 text-end text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-end text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     {t.files.actions}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-border">
                 {filteredFiles.map((file) => {
                   const Icon = getCategoryIcon(file.file_category);
+                  const catStyle = getCategoryStyle(file.file_category);
                   return (
                     <tr
                       key={file.id}
-                      className="hover:bg-zinc-900/60 transition-colors cursor-pointer"
+                      className="hover:bg-card/80 transition-colors cursor-pointer"
                       onClick={() => setDetailFile(file)}
                     >
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -414,80 +405,79 @@ export default function FilesPage() {
                           type="checkbox"
                           checked={selectedFiles.has(file.id)}
                           onChange={() => toggleSelect(file.id)}
-                          className="rounded border-zinc-600 bg-zinc-800"
+                          className="rounded border-border bg-secondary"
                         />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
-                            <Icon className="h-4 w-4 text-zinc-400" />
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${catStyle.bg}`}>
+                            <Icon className={`h-4 w-4 ${catStyle.text}`} />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-white truncate">
                               {file.original_name}
                             </p>
-                            <p className="text-xs text-zinc-500 md:hidden">
-                              {formatBytes(file.size_bytes)}
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(file.created_at), "'Modified' h'h' 'ago'")}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
-                        <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 text-xs">
-                          {file.file_type}
-                        </Badge>
+                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${catStyle.badge}`}>
+                          {file.file_category}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 hidden lg:table-cell">
-                        {formatBytes(file.size_bytes)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 hidden lg:table-cell">
-                        {format(new Date(file.created_at), 'MMM d, yyyy')}
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${getStatusColor(
-                            file.processing_status
-                          )}`}
-                        >
-                          {file.processing_status}
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <span className="text-sm text-white">
+                          {formatBytes(file.size_bytes)}
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden xl:table-cell">
                         {file.quality_score !== null ? (
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-16 rounded-full bg-zinc-800">
+                            <span className="text-sm font-medium text-white min-w-[32px]">
+                              {file.quality_score}%
+                            </span>
+                            <div className="h-1.5 w-16 rounded-full bg-secondary">
                               <div
-                                className="h-full rounded-full bg-blue-500"
+                                className={`h-full rounded-full ${getQualityColor(file.quality_score)}`}
                                 style={{ width: `${file.quality_score}%` }}
                               />
                             </div>
-                            <span className="text-xs text-zinc-400">
-                              {file.quality_score}%
-                            </span>
+                            <span className="text-muted-foreground text-xs">&#x2022;</span>
                           </div>
                         ) : (
-                          <span className="text-xs text-zinc-600">--</span>
+                          <span className="text-sm text-muted-foreground/50">Error</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full ${getStatusDot(file.processing_status)}`} />
+                          <span className={`text-sm font-medium uppercase tracking-wider ${getStatusColor(file.processing_status)}`}>
+                            {getStatusLabel(file.processing_status, t)}
+                          </span>
+                        </span>
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setDetailFile(file)}
-                            className="p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-white hover:bg-secondary transition-colors"
                             title={t.files.viewDetails}
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleAddToChat(file)}
-                            className="p-1.5 rounded-md text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 transition-colors"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
                             title={t.files.addToChatContext}
                           >
                             <MessageSquare className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => deleteFile(file.id)}
-                            className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-secondary transition-colors"
                             title={t.delete}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -505,42 +495,41 @@ export default function FilesPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredFiles.map((file) => {
               const Icon = getCategoryIcon(file.file_category);
+              const catStyle = getCategoryStyle(file.file_category);
               return (
                 <div
                   key={file.id}
                   onClick={() => setDetailFile(file)}
                   className={`group relative rounded-xl border p-4 cursor-pointer transition-colors ${
                     selectedFiles.has(file.id)
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-card hover:border-muted-foreground/30'
                   }`}
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800 mb-3">
-                      <Icon className="h-6 w-6 text-zinc-400" />
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${catStyle.bg} mb-3`}>
+                      <Icon className={`h-6 w-6 ${catStyle.text}`} />
                     </div>
                     <p className="text-sm font-medium text-white truncate w-full">
                       {file.original_name}
                     </p>
-                    <p className="text-xs text-zinc-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {formatBytes(file.size_bytes)}
                     </p>
-                    <span
-                      className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${getStatusColor(
-                        file.processing_status
-                      )}`}
-                    >
-                      {file.processing_status}
+                    <span className="flex items-center gap-1.5 mt-2">
+                      <span className={`h-1.5 w-1.5 rounded-full ${getStatusDot(file.processing_status)}`} />
+                      <span className={`text-xs font-medium uppercase ${getStatusColor(file.processing_status)}`}>
+                        {getStatusLabel(file.processing_status, t)}
+                      </span>
                     </span>
                   </div>
-                  {/* Hover actions */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                  <div className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAddToChat(file);
                       }}
-                      className="p-1 rounded bg-zinc-800 text-zinc-400 hover:text-blue-400"
+                      className="p-1 rounded bg-secondary text-muted-foreground hover:text-primary"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
                     </button>
@@ -549,13 +538,12 @@ export default function FilesPage() {
                         e.stopPropagation();
                         deleteFile(file.id);
                       }}
-                      className="p-1 rounded bg-zinc-800 text-zinc-400 hover:text-red-400"
+                      className="p-1 rounded bg-secondary text-muted-foreground hover:text-red-400"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  {/* Selection checkbox */}
-                  <div className="absolute top-2 left-2">
+                  <div className="absolute top-2 start-2">
                     <input
                       type="checkbox"
                       checked={selectedFiles.has(file.id)}
@@ -563,7 +551,7 @@ export default function FilesPage() {
                         e.stopPropagation();
                         toggleSelect(file.id);
                       }}
-                      className="rounded border-zinc-600 bg-zinc-800"
+                      className="rounded border-border bg-secondary"
                     />
                   </div>
                 </div>
@@ -571,14 +559,46 @@ export default function FilesPage() {
             })}
           </div>
         )}
+
+        {/* Footer - showing items count + pagination */}
+        {!loading && filteredFiles.length > 0 && (
+          <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground uppercase tracking-wider">
+            <span>
+              {t.files.showingItems} {filteredFiles.length} {t.files.ofItems} {files.length} {t.files.items}
+            </span>
+            <div className="flex items-center gap-1">
+              <button className="px-2 py-1 text-muted-foreground hover:text-white transition-colors">
+                {isRtl ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+                {t.files.previous}
+              </button>
+              <button className="h-7 w-7 rounded-md bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center">
+                1
+              </button>
+              <button className="h-7 w-7 rounded-md text-muted-foreground hover:text-white text-xs flex items-center justify-center">
+                2
+              </button>
+              <button className="h-7 w-7 rounded-md text-muted-foreground hover:text-white text-xs flex items-center justify-center">
+                3
+              </button>
+              <span className="text-muted-foreground/50 px-1">...</span>
+              <button className="h-7 w-7 rounded-md text-muted-foreground hover:text-white text-xs flex items-center justify-center">
+                12
+              </button>
+              <button className="px-2 py-1 text-muted-foreground hover:text-white transition-colors">
+                {t.files.next}
+                {isRtl ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* File detail dialog */}
       <Dialog open={!!detailFile} onOpenChange={(open) => !open && setDetailFile(null)}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-lg">
+        <DialogContent className="bg-card border-border text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-white">{detailFile?.original_name}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               {t.files.fileDetails}
             </DialogDescription>
           </DialogHeader>
@@ -586,35 +606,34 @@ export default function FilesPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.type}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.type}</p>
                   <p className="text-zinc-200 mt-1">{detailFile.file_type}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.category}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.category}</p>
                   <p className="text-zinc-200 mt-1 capitalize">{detailFile.file_category}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.size}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.size}</p>
                   <p className="text-zinc-200 mt-1">{formatBytes(detailFile.size_bytes)}</p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.status}</p>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium mt-1 ${getStatusColor(
-                      detailFile.processing_status
-                    )}`}
-                  >
-                    {detailFile.processing_status}
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.status}</p>
+                  <span className="flex items-center gap-1.5 mt-1">
+                    <span className={`h-2 w-2 rounded-full ${getStatusDot(detailFile.processing_status)}`} />
+                    <span className={`text-sm font-medium ${getStatusColor(detailFile.processing_status)}`}>
+                      {getStatusLabel(detailFile.processing_status, t)}
+                    </span>
                   </span>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.created}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.created}</p>
                   <p className="text-zinc-200 mt-1">
                     {format(new Date(detailFile.created_at), 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.quality}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.quality}</p>
                   <p className="text-zinc-200 mt-1">
                     {detailFile.quality_score !== null
                       ? `${detailFile.quality_score}%`
@@ -623,7 +642,7 @@ export default function FilesPage() {
                 </div>
                 {detailFile.row_count !== null && (
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.rows}</p>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.rows}</p>
                     <p className="text-zinc-200 mt-1">
                       {detailFile.row_count?.toLocaleString()}
                     </p>
@@ -631,7 +650,7 @@ export default function FilesPage() {
                 )}
                 {detailFile.column_count !== null && (
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">{t.files.columns}</p>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.columns}</p>
                     <p className="text-zinc-200 mt-1">{detailFile.column_count}</p>
                   </div>
                 )}
@@ -639,10 +658,10 @@ export default function FilesPage() {
 
               {detailFile.ai_summary && (
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">
                     {t.files.aiSummary}
                   </p>
-                  <p className="text-zinc-300 text-sm bg-zinc-800 rounded-lg p-3">
+                  <p className="text-zinc-300 text-sm bg-secondary rounded-lg p-3">
                     {detailFile.ai_summary}
                   </p>
                 </div>
@@ -650,13 +669,13 @@ export default function FilesPage() {
 
               {detailFile.tags.length > 0 && (
                 <div>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">{t.files.tags}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">{t.files.tags}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {detailFile.tags.map((tag) => (
                       <Badge
                         key={tag}
                         variant="secondary"
-                        className="bg-zinc-800 text-zinc-300"
+                        className="bg-secondary text-zinc-300"
                       >
                         {tag}
                       </Badge>
@@ -674,7 +693,7 @@ export default function FilesPage() {
               <div className="flex gap-2 pt-2">
                 <Button
                   onClick={() => handleAddToChat(detailFile)}
-                  className="bg-blue-600 hover:bg-blue-500 text-white"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   <MessageSquare className="h-4 w-4 me-2" />
                   {t.files.addToChat}

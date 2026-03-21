@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, Search, Bell, Zap } from "lucide-react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { useChatStore } from "@/stores/chat-store"
 import { ChatSidebar, type ChatMessage } from "@/components/layout/chat-sidebar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Toaster } from "@/components/ui/toast"
 import {
   CommandDialog,
@@ -22,6 +24,7 @@ import {
   StickyNote,
   FileText,
   Settings,
+  MessageSquare as MessageSquareNav,
 } from "lucide-react"
 import { useLanguageStore } from "@/stores/language-store"
 
@@ -47,6 +50,7 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [chatOpen, setChatOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'activity'>('overview')
   const { t } = useLanguageStore()
   const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage } = useChatStore()
   const chatMessages = chatStoreMessages.map(m => ({
@@ -79,8 +83,16 @@ export function AppShell({
     { label: t.nav.dashboards, icon: LayoutDashboard, href: "/dashboards" },
     { label: t.nav.notes, icon: StickyNote, href: "/notes" },
     { label: t.nav.reports, icon: FileText, href: "/reports" },
+    { label: t.nav.chat, icon: MessageSquareNav, href: "/chat" },
     { label: t.nav.settings, icon: Settings, href: "/settings" },
   ]
+
+  const initials = user?.name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U"
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
@@ -97,16 +109,80 @@ export function AppShell({
         onLogout={onLogout}
       />
 
-      {/* Main content area */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      {/* Main content area with top bar */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top navigation bar */}
+        <header className="flex h-12 items-center justify-between border-b border-border px-4">
+          {/* Left: App name + tabs */}
+          <div className="flex items-center gap-6">
+            <span className="text-sm font-bold tracking-tight text-white">
+              {t.appName}
+            </span>
+
+            {/* Search */}
+            <div className="relative hidden md:block">
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder={t.nav.searchPlaceholder}
+                className="ps-9 h-8 w-56 bg-secondary border-border text-sm placeholder:text-muted-foreground"
+                onClick={() => setCommandOpen(true)}
+                readOnly
+              />
+            </div>
+
+            {/* Tabs */}
+            <nav className="flex items-center gap-4">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`text-xs font-semibold uppercase tracking-wider pb-0.5 transition-colors ${
+                  activeTab === 'overview'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                {t.nav.overview}
+              </button>
+              <button
+                onClick={() => setActiveTab('activity')}
+                className={`text-xs font-semibold uppercase tracking-wider pb-0.5 transition-colors ${
+                  activeTab === 'activity'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                {t.nav.activity}
+              </button>
+            </nav>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2">
+            <button className="p-1.5 rounded-md text-muted-foreground hover:text-white transition-colors">
+              <Bell className="h-4 w-4" />
+            </button>
+            <button className="p-1.5 rounded-md text-muted-foreground hover:text-white transition-colors">
+              <Zap className="h-4 w-4" />
+            </button>
+            <Avatar className="h-7 w-7 ms-1">
+              <AvatarImage src={user?.avatarUrl} alt={user?.name} />
+              <AvatarFallback className="text-[10px] bg-secondary text-muted-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
 
       {/* Chat toggle button (floating) */}
       {!chatOpen && (
         <Button
           size="icon"
-          className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg"
+          className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary hover:bg-primary/90"
           onClick={() => setChatOpen(true)}
         >
           <MessageSquare className="h-5 w-5" />

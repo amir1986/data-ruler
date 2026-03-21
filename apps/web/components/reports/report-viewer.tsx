@@ -76,10 +76,10 @@ function QualityBar({ value, className }: { value: number; className?: string })
   const color = value >= 80 ? 'bg-green-500' : value >= 60 ? 'bg-yellow-500' : 'bg-red-500';
   return (
     <div className={`flex items-center gap-2 ${className || ''}`}>
-      <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${value}%` }} />
       </div>
-      <span className="text-xs text-zinc-400 w-8 text-right">{value}%</span>
+      <span className="text-xs text-muted-foreground w-8 text-end">{value}%</span>
     </div>
   );
 }
@@ -88,10 +88,10 @@ function KpiCards({ kpis, accentColor }: { kpis: { label: string; value: string;
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {kpis.map((kpi, i) => (
-        <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-4">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{kpi.label}</p>
+        <div key={i} className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{kpi.label}</p>
           <p className={`text-2xl font-bold ${accentColor}`}>{kpi.value}</p>
-          <p className="text-xs text-zinc-500 mt-1">{kpi.sublabel}</p>
+          <p className="text-xs text-muted-foreground mt-1">{kpi.sublabel}</p>
         </div>
       ))}
     </div>
@@ -100,20 +100,20 @@ function KpiCards({ kpis, accentColor }: { kpis: { label: string; value: string;
 
 function DataTable({ headers, rows }: { headers: string[]; rows: (string | number | null)[][] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-800">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-zinc-800 bg-zinc-800/50">
+          <tr className="border-b border-border bg-card">
             {headers.map((h, i) => (
-              <th key={i} className="px-3 py-2 text-left text-xs font-medium text-zinc-400 uppercase tracking-wider">{h}</th>
+              <th key={i} className="px-3 py-2 text-start text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800/50">
+        <tbody className="divide-y divide-border">
           {rows.map((row, i) => (
-            <tr key={i} className="hover:bg-zinc-800/30">
+            <tr key={i} className="hover:bg-secondary/50">
               {row.map((cell, j) => (
-                <td key={j} className="px-3 py-2 text-zinc-300 whitespace-nowrap">
+                <td key={j} className="px-3 py-2 text-foreground/80 whitespace-nowrap">
                   {cell !== null && cell !== undefined ? String(cell) : '—'}
                 </td>
               ))}
@@ -129,7 +129,7 @@ function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     ready: 'bg-green-500/20 text-green-400',
     error: 'bg-red-500/20 text-red-400',
-    pending: 'bg-zinc-500/20 text-zinc-400',
+    pending: 'bg-muted text-muted-foreground',
     processing: 'bg-blue-500/20 text-blue-400',
   };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${styles[status] || styles.pending}`}>{status}</span>;
@@ -140,10 +140,10 @@ function SectionBlock({ title, content, icon }: { title: string; content: string
     <div>
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <h3 className="text-sm font-semibold text-white uppercase tracking-wider">{title}</h3>
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h3>
       </div>
-      <div className="bg-zinc-800/40 rounded-lg p-4">
-        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">{content}</p>
+      <div className="bg-card rounded-lg p-4 border border-border">
+        <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">{content}</p>
       </div>
     </div>
   );
@@ -155,7 +155,7 @@ function ExecutiveSummaryView({ content, theme }: { content: ReportContent; them
       {content.kpis && <KpiCards kpis={content.kpis} accentColor={theme.accent} />}
 
       <div className={`rounded-lg border ${theme.border} ${theme.bg} p-4`}>
-        <p className="text-sm text-zinc-200 leading-relaxed">{content.summary}</p>
+        <p className="text-sm text-foreground/90 leading-relaxed">{content.summary}</p>
       </div>
 
       {content.sections.map((section, idx) => (
@@ -174,11 +174,11 @@ function ExecutiveSummaryView({ content, theme }: { content: ReportContent; them
 
       {content.quality_breakdown && content.quality_breakdown.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">Quality by File</h3>
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">Quality by File</h3>
           <div className="space-y-2">
             {content.quality_breakdown.map((item, i) => (
               <div key={i} className="flex items-center gap-3">
-                <span className="text-sm text-zinc-400 w-48 truncate">{item.name}</span>
+                <span className="text-sm text-muted-foreground w-48 truncate">{item.name}</span>
                 <QualityBar value={item.quality} className="flex-1" />
               </div>
             ))}
@@ -188,7 +188,7 @@ function ExecutiveSummaryView({ content, theme }: { content: ReportContent; them
 
       {content.files.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">Data Sources</h3>
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">Data Sources</h3>
           <DataTable
             headers={['File', 'Type', 'Size', 'Rows', 'Quality', 'Status']}
             rows={content.files.map(f => [f.name, f.type, f.size_formatted, f.rows?.toLocaleString() ?? null, f.quality !== null ? `${f.quality}%` : null, f.status])}
@@ -205,14 +205,14 @@ function DataDeepDiveView({ content, theme }: { content: ReportContent; theme: t
       {content.kpis && <KpiCards kpis={content.kpis} accentColor={theme.accent} />}
 
       <div className={`rounded-lg border ${theme.border} ${theme.bg} p-4`}>
-        <p className="text-sm text-zinc-200 leading-relaxed">{content.summary}</p>
+        <p className="text-sm text-foreground/90 leading-relaxed">{content.summary}</p>
       </div>
 
       {content.schema_table && content.schema_table.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Database className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Schema Analysis</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Schema Analysis</h3>
           </div>
           <DataTable
             headers={['Dataset', 'Format', 'Columns', 'Rows', 'Size', 'Quality']}
@@ -225,7 +225,7 @@ function DataDeepDiveView({ content, theme }: { content: ReportContent; theme: t
         <div>
           <div className="flex items-center gap-2 mb-3">
             <HardDrive className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Size Distribution</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Size Distribution</h3>
           </div>
           <div className="space-y-2">
             {content.size_distribution.map((item, i) => {
@@ -233,11 +233,11 @@ function DataDeepDiveView({ content, theme }: { content: ReportContent; theme: t
               const pct = maxSize > 0 ? Math.round((item.size / maxSize) * 100) : 0;
               return (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="text-sm text-zinc-400 w-48 truncate">{item.name}</span>
-                  <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
+                  <span className="text-sm text-muted-foreground w-48 truncate">{item.name}</span>
+                  <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                     <div className="h-full bg-purple-500 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs text-zinc-400 w-16 text-right">{item.size_formatted}</span>
+                  <span className="text-xs text-muted-foreground w-16 text-end">{item.size_formatted}</span>
                 </div>
               );
             })}
@@ -258,14 +258,14 @@ function MonthlyReportView({ content, theme }: { content: ReportContent; theme: 
       {content.kpis && <KpiCards kpis={content.kpis} accentColor={theme.accent} />}
 
       <div className={`rounded-lg border ${theme.border} ${theme.bg} p-4`}>
-        <p className="text-sm text-zinc-200 leading-relaxed">{content.summary}</p>
+        <p className="text-sm text-foreground/90 leading-relaxed">{content.summary}</p>
       </div>
 
       {content.activity_stats && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Processing Pipeline</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Processing Pipeline</h3>
           </div>
           <div className="grid grid-cols-4 gap-3">
             {[
@@ -274,9 +274,9 @@ function MonthlyReportView({ content, theme }: { content: ReportContent; theme: 
               { label: 'Errors', value: content.activity_stats.total_errors, color: 'text-red-400' },
               { label: 'Pending', value: content.activity_stats.total_pending, color: 'text-yellow-400' },
             ].map((stat, i) => (
-              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-3 text-center">
+              <div key={i} className="rounded-lg border border-border bg-card p-3 text-center">
                 <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
-                <p className="text-xs text-zinc-500 mt-1">{stat.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -287,7 +287,7 @@ function MonthlyReportView({ content, theme }: { content: ReportContent; theme: 
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Layers className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Category Breakdown</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Category Breakdown</h3>
           </div>
           <DataTable
             headers={['Category', 'Files', 'Size']}
@@ -302,7 +302,7 @@ function MonthlyReportView({ content, theme }: { content: ReportContent; theme: 
 
       {content.files.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">Files This Period</h3>
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">Files This Period</h3>
           <DataTable
             headers={['File', 'Type', 'Category', 'Size', 'Status']}
             rows={content.files.map(f => [f.name, f.type, f.category, f.size_formatted, f.status])}
@@ -319,14 +319,14 @@ function ComparisonReportView({ content, theme }: { content: ReportContent; them
       {content.kpis && <KpiCards kpis={content.kpis} accentColor={theme.accent} />}
 
       <div className={`rounded-lg border ${theme.border} ${theme.bg} p-4`}>
-        <p className="text-sm text-zinc-200 leading-relaxed">{content.summary}</p>
+        <p className="text-sm text-foreground/90 leading-relaxed">{content.summary}</p>
       </div>
 
       {content.comparison_table && content.comparison_table.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <ArrowUpDown className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Dataset Comparison</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Dataset Comparison</h3>
           </div>
           <DataTable
             headers={['Dataset', 'Format', 'Category', 'Size', 'Rows', 'Columns', 'Quality', 'Status']}
@@ -339,12 +339,12 @@ function ComparisonReportView({ content, theme }: { content: ReportContent; them
         <div>
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Quality Comparison</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Quality Comparison</h3>
           </div>
           <div className="space-y-2">
             {content.comparison_table.filter(f => f.quality !== null).map((item, i) => (
               <div key={i} className="flex items-center gap-3">
-                <span className="text-sm text-zinc-400 w-48 truncate">{item.name}</span>
+                <span className="text-sm text-muted-foreground w-48 truncate">{item.name}</span>
                 <QualityBar value={item.quality!} className="flex-1" />
               </div>
             ))}
@@ -355,26 +355,26 @@ function ComparisonReportView({ content, theme }: { content: ReportContent; them
       {content.rankings && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {content.rankings.by_size.length > 0 && (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-4">
-              <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Ranked by Size</h4>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ranked by Size</h4>
               <ol className="space-y-1">
                 {content.rankings.by_size.map((name, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
-                    <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold ${i === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-zinc-700 text-zinc-400'}`}>{i + 1}</span>
-                    <span className="text-zinc-300 truncate">{name}</span>
+                    <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold ${i === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-secondary text-muted-foreground'}`}>{i + 1}</span>
+                    <span className="text-foreground/80 truncate">{name}</span>
                   </li>
                 ))}
               </ol>
             </div>
           )}
           {content.rankings.by_quality.length > 0 && (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-4">
-              <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Ranked by Quality</h4>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ranked by Quality</h4>
               <ol className="space-y-1">
                 {content.rankings.by_quality.map((name, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
-                    <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold ${i === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-zinc-700 text-zinc-400'}`}>{i + 1}</span>
-                    <span className="text-zinc-300 truncate">{name}</span>
+                    <span className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold ${i === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-secondary text-muted-foreground'}`}>{i + 1}</span>
+                    <span className="text-foreground/80 truncate">{name}</span>
                   </li>
                 ))}
               </ol>
@@ -396,48 +396,48 @@ function QuickBriefView({ content, theme }: { content: ReportContent; theme: typ
       {content.kpis && <KpiCards kpis={content.kpis} accentColor={theme.accent} />}
 
       <div className={`rounded-lg border ${theme.border} ${theme.bg} p-4`}>
-        <p className="text-sm text-zinc-200 leading-relaxed">{content.summary}</p>
+        <p className="text-sm text-foreground/90 leading-relaxed">{content.summary}</p>
       </div>
 
       {content.file_snapshot && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <FileText className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Primary File</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Primary File</h3>
           </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-4">
+          <div className="rounded-lg border border-border bg-card p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <p className="text-xs text-zinc-500">Name</p>
-                <p className="text-sm text-zinc-200 font-medium truncate">{content.file_snapshot.name}</p>
+                <p className="text-xs text-muted-foreground">Name</p>
+                <p className="text-sm text-foreground font-medium truncate">{content.file_snapshot.name}</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500">Format</p>
-                <p className="text-sm text-zinc-200">{content.file_snapshot.type}</p>
+                <p className="text-xs text-muted-foreground">Format</p>
+                <p className="text-sm text-foreground">{content.file_snapshot.type}</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500">Size</p>
-                <p className="text-sm text-zinc-200">{content.file_snapshot.size}</p>
+                <p className="text-xs text-muted-foreground">Size</p>
+                <p className="text-sm text-foreground">{content.file_snapshot.size}</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500">Status</p>
+                <p className="text-xs text-muted-foreground">Status</p>
                 <StatusBadge status={content.file_snapshot.status} />
               </div>
               {content.file_snapshot.rows !== null && (
                 <div>
-                  <p className="text-xs text-zinc-500">Rows</p>
-                  <p className="text-sm text-zinc-200">{content.file_snapshot.rows.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Rows</p>
+                  <p className="text-sm text-foreground">{content.file_snapshot.rows.toLocaleString()}</p>
                 </div>
               )}
               {content.file_snapshot.columns !== null && (
                 <div>
-                  <p className="text-xs text-zinc-500">Columns</p>
-                  <p className="text-sm text-zinc-200">{content.file_snapshot.columns}</p>
+                  <p className="text-xs text-muted-foreground">Columns</p>
+                  <p className="text-sm text-foreground">{content.file_snapshot.columns}</p>
                 </div>
               )}
               {content.file_snapshot.quality !== null && (
                 <div className="col-span-2">
-                  <p className="text-xs text-zinc-500 mb-1">Quality</p>
+                  <p className="text-xs text-muted-foreground mb-1">Quality</p>
                   <QualityBar value={content.file_snapshot.quality} />
                 </div>
               )}
@@ -450,13 +450,13 @@ function QuickBriefView({ content, theme }: { content: ReportContent; theme: typ
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Zap className={`h-4 w-4 ${theme.accent}`} />
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">AI Insights</h3>
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">AI Insights</h3>
           </div>
           <div className="space-y-2">
             {content.ai_insights.map((insight, i) => (
-              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-800/30 p-3">
+              <div key={i} className="rounded-lg border border-border bg-card p-3">
                 <p className="text-xs font-medium text-yellow-400 mb-1">{insight.name}</p>
-                <p className="text-sm text-zinc-300">{insight.insight}</p>
+                <p className="text-sm text-foreground/80">{insight.insight}</p>
               </div>
             ))}
           </div>
@@ -469,7 +469,7 @@ function QuickBriefView({ content, theme }: { content: ReportContent; theme: typ
 
       {content.files.length > 1 && (
         <div>
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">All Files</h3>
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">All Files</h3>
           <DataTable
             headers={['File', 'Type', 'Size', 'Quality']}
             rows={content.files.map(f => [f.name, f.type, f.size_formatted, f.quality !== null ? `${f.quality}%` : null])}
@@ -497,7 +497,7 @@ export default function ReportViewer({ report }: { report: Report }) {
         <Badge className={`${theme.bg} ${theme.accent} ${theme.border} border text-xs`}>
           {theme.label}
         </Badge>
-        <span className="text-xs text-zinc-500">
+        <span className="text-xs text-muted-foreground">
           Generated {new Date(content.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
         </span>
       </div>
