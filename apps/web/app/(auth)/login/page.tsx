@@ -24,7 +24,7 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/files');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t.auth.loginFailed);
     } finally {
       setLoading(false);
     }

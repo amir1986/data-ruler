@@ -304,7 +304,7 @@ export default function FilesPage() {
             onValueChange={setFilterCategory}
           >
             <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-800 text-zinc-300">
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder={t.files.category} />
             </SelectTrigger>
             <SelectContent className="bg-zinc-900 border-zinc-800">
               {categories.map((c) => (
@@ -474,21 +474,21 @@ export default function FilesPage() {
                           <button
                             onClick={() => setDetailFile(file)}
                             className="p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
-                            title="View details"
+                            title={t.files.viewDetails}
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleAddToChat(file)}
                             className="p-1.5 rounded-md text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 transition-colors"
-                            title="Add to chat context"
+                            title={t.files.addToChatContext}
                           >
                             <MessageSquare className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => deleteFile(file.id)}
                             className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
-                            title="Delete"
+                            title={t.delete}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

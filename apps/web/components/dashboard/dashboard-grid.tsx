@@ -15,7 +15,7 @@ interface DashboardGridProps {
 }
 
 export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridProps) {
-  const { updateDashboard, removeWidget, setEditMode } = useDashboardStore();
+  const { updateDashboard, addWidget, removeWidget, setEditMode } = useDashboardStore();
   const { t } = useLanguageStore();
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -49,6 +49,59 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
     [editMode, widgets, dashboardId, updateDashboard]
   );
 
+  const handleAddWidget = async (type: string) => {
+    const widgetCount = widgets.length;
+    const defaults: Record<string, Partial<Widget>> = {
+      chart: {
+        type: 'chart',
+        chart_type: 'bar',
+        title: `${t.dashboards.chart} ${widgetCount + 1}`,
+        config: { labels: ['A', 'B', 'C', 'D'], data: [40, 55, 30, 70] },
+      },
+      kpi: {
+        type: 'kpi',
+        title: `KPI ${widgetCount + 1}`,
+        config: { label: 'Metric', value: 0, suffix: '' },
+      },
+      table: {
+        type: 'table',
+        title: `${t.dashboards.table} ${widgetCount + 1}`,
+        config: { columns: ['Column 1', 'Column 2'], rows: [] },
+      },
+      text: {
+        type: 'text',
+        title: `${t.dashboards.text} ${widgetCount + 1}`,
+        config: { content: '' },
+      },
+    };
+
+    const preset = defaults[type] || defaults.text;
+    await addWidget(dashboardId, {
+      ...preset,
+      type: preset.type as Widget['type'],
+      title: preset.title || `${t.dashboards.widget} ${widgetCount + 1}`,
+      config: preset.config || {},
+      layout: {
+        x: (widgetCount * 4) % 12,
+        y: Math.floor((widgetCount * 4) / 12) * 4,
+        w: type === 'kpi' ? 3 : 4,
+        h: type === 'kpi' ? 2 : 3,
+      },
+    } as Omit<Widget, 'id'>);
+    setShowAddModal(false);
+  };
+
+  const handleExport = () => {
+    const data = JSON.stringify({ dashboardId, widgets }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard_${dashboardId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="relative">
       {/* Toolbar */}
@@ -74,7 +127,10 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
             </button>
           )}
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition">
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition"
+        >
           <Download className="w-4 h-4" /> {t.dashboards.export}
         </button>
       </div>
@@ -132,10 +188,7 @@ export function DashboardGrid({ dashboardId, widgets, editMode }: DashboardGridP
               ].map((item) => (
                 <button
                   key={item.type}
-                  onClick={() => {
-                    // TODO: Open widget configuration
-                    setShowAddModal(false);
-                  }}
+                  onClick={() => handleAddWidget(item.type)}
                   className="text-start p-4 rounded-lg border border-zinc-700 hover:border-blue-500 hover:bg-blue-500/5 transition"
                 >
                   <p className="text-sm font-medium text-zinc-200">{item.label}</p>

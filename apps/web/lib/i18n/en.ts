@@ -4,6 +4,7 @@ const en = {
   appTagline: 'AI-Powered Data Platform',
   appDescription: 'Data Ruler - AI-powered data analysis platform. Built with Next.js, Ollama, and love.',
   save: 'Save',
+  saving: 'Saving...',
   cancel: 'Cancel',
   confirm: 'Confirm',
   delete: 'Delete',
@@ -44,6 +45,8 @@ const en = {
     noAccount: "Don't have an account?",
     createOne: 'Create one',
     hasAccount: 'Already have an account?',
+    loginFailed: 'Login failed',
+    registrationFailed: 'Registration failed',
   },
 
   // Files page
@@ -156,9 +159,38 @@ const en = {
   reports: {
     title: 'Reports',
     subtitle: 'Generate professional reports from your data analysis',
-    comingSoon: 'Coming Soon',
-    comingSoonTitle: 'Reports are coming soon',
-    comingSoonDesc: 'We are building powerful report generation capabilities. Soon you will be able to create beautiful, AI-powered reports from your data with just a few clicks.',
+    newReport: 'New Report',
+    createNewReport: 'Create New Report',
+    chooseTemplate: 'Choose a template and data sources for your report',
+    searchReports: 'Search reports...',
+    allStatuses: 'All statuses',
+    statusLabel: 'Status',
+    draft: 'Draft',
+    generating: 'Generating',
+    ready: 'Ready',
+    error: 'Error',
+    quickCreate: 'Quick Create from Template',
+    yourReports: 'Your Reports',
+    noMatchingReports: 'No matching reports',
+    noReportsYet: 'No reports yet',
+    tryDifferentCriteria: 'Try different search or filter criteria',
+    createFromTemplate: 'Create a report using one of the templates above',
+    createFirstReport: 'Create Your First Report',
+    deleteReport: 'Delete this report?',
+    generateReport: 'Generate report',
+    viewReport: 'View report',
+    template: 'Template',
+    titleOptional: 'Title (optional)',
+    reportTitlePlaceholder: 'Report title...',
+    dataSources: 'Data Sources',
+    dataSourcesSelected: 'selected',
+    dataSourcesHint: 'Select files to include in the analysis. Leave empty to use all available data.',
+    createReport: 'Create Report',
+    exportJson: 'Export JSON',
+    regenerate: 'Regenerate',
+    generated: 'Generated',
+    files: 'file(s)',
+    all: 'All',
     reportTemplates: 'Report Templates',
     executiveSummary: 'Executive Summary',
     executiveSummaryDesc: 'High-level overview of data quality metrics, key insights, and actionable recommendations for stakeholders.',
@@ -260,5 +292,11 @@ const en = {
   },
 } as const;
 
-export type TranslationKeys = typeof en;
+// Deep writable: convert readonly literal types to mutable string types
+// so that translation files in other languages can use different string values
+type DeepString<T> = {
+  [K in keyof T]: T[K] extends string ? string : DeepString<T[K]>;
+};
+
+export type TranslationKeys = DeepString<typeof en>;
 export default en;

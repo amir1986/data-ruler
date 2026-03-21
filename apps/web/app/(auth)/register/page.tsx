@@ -29,7 +29,7 @@ export default function RegisterPage() {
       await register(email, password, displayName || undefined);
       router.push('/files');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(err instanceof Error ? err.message : t.auth.registrationFailed);
     } finally {
       setLoading(false);
     }
