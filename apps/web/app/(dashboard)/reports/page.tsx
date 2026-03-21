@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useLanguageStore } from '@/stores/language-store';
 import { format } from 'date-fns';
+import ReportViewer from '@/components/reports/report-viewer';
 
 function getStatusStyle(status: string) {
   const styles: Record<string, string> = {
@@ -112,6 +113,7 @@ export default function ReportsPage() {
     updateReport,
     deleteReport,
     setActiveReport,
+    fetchReport,
   } = useReportsStore();
   const { files, fetchFiles } = useFileStore();
 
@@ -357,7 +359,7 @@ export default function ReportsPage() {
                       )}
                       {report.status === 'ready' && (
                         <button
-                          onClick={() => setActiveReport(report)}
+                          onClick={() => fetchReport(report.id)}
                           className="p-1.5 rounded-md text-zinc-500 hover:text-green-400 hover:bg-zinc-800 transition-colors"
                           title={t.reports.viewReport}
                         >
@@ -380,7 +382,7 @@ export default function ReportsPage() {
                       className="absolute inset-0 rounded-xl"
                       onClick={() => {
                         if (report.status === 'ready') {
-                          setActiveReport(report);
+                          fetchReport(report.id);
                         } else if (report.status === 'draft') {
                           handleGenerate(report);
                         }
@@ -527,9 +529,9 @@ export default function ReportsPage() {
         open={!!activeReport}
         onOpenChange={(open) => !open && setActiveReport(null)}
       >
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-4xl max-h-[85vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-white text-xl">
               {activeReport?.title}
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -538,30 +540,8 @@ export default function ReportsPage() {
             </DialogDescription>
           </DialogHeader>
           {activeReport && activeReport.content && (
-            <div className="space-y-6">
-              {(activeReport.content as Record<string, unknown>).summary ? (
-                <div className="bg-zinc-800 rounded-lg p-4">
-                  <p className="text-sm text-zinc-300 leading-relaxed">
-                    {String(
-                      (activeReport.content as Record<string, unknown>).summary
-                    )}
-                  </p>
-                </div>
-              ) : null}
-
-              {(
-                (activeReport.content as Record<string, unknown>)
-                  .sections as Array<{ title: string; content: string }>
-              )?.map((section, idx) => (
-                <div key={idx}>
-                  <h3 className="text-base font-semibold text-white mb-2">
-                    {section.title}
-                  </h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed whitespace-pre-line">
-                    {section.content}
-                  </p>
-                </div>
-              ))}
+            <div className="space-y-4">
+              <ReportViewer report={activeReport} />
 
               {/* Metadata */}
               <div className="border-t border-zinc-800 pt-4">
