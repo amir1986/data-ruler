@@ -34,57 +34,23 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 20+
-- Python 3.11+
-- At least ONE free API key (see below)
-
-### Get a Free API Key (pick one)
-
-| Provider | Free Tier | Sign Up |
-|----------|-----------|---------|
-| **Groq** (recommended) | 14,400 req/day, 70B models | https://console.groq.com/keys |
-| **OpenRouter** | Free models (Llama 3.3 70B) | https://openrouter.ai/keys |
-| **HuggingFace** | Free inference API | https://huggingface.co/settings/tokens |
-
-### One-Command Start
-
 ```bash
-# 1. Clone and configure
 git clone <repo-url>
 cd data-ruler
 cp .env.example .env
-# Edit .env — add your API key (GROQ_API_KEY, OPENROUTER_API_KEY, or HF_API_TOKEN)
-
-# 2. Start everything
-./start.sh
-```
-
-### Manual Setup
-
-```bash
-# Backend (AI Service)
-cd apps/ai-service
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-
-# Frontend (new terminal)
-cd apps/web
-npm install --legacy-peer-deps
-npm run dev
-```
-
-### Docker
-
-```bash
-cp .env.example .env
-# Edit .env with your API key
+# Edit .env — add at least one API key (GROQ_API_KEY, OPENROUTER_API_KEY, or HF_API_TOKEN)
 docker compose up --build -d
 ```
 
 Open http://localhost:3000 and create an account.
+
+Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), or [HuggingFace](https://huggingface.co/settings/tokens).
+
+## Deploy to a Domain
+
+1. In `.env`, set `NEXTAUTH_URL=https://yourdomain.com` and generate a strong `NEXTAUTH_SECRET`
+2. Point your domain's DNS A record to your server IP
+3. Put a reverse proxy (e.g. [Caddy](https://caddyserver.com/) or Nginx) in front of port 3000 to handle HTTPS
 
 ## Environment Variables
 
