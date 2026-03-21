@@ -10,7 +10,7 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 - **Automatic Processing** — Files are detected, parsed, profiled, and stored in the optimal database engine
 - **Smart Dashboards** — Auto-generated charts and insights, plus a drag-and-drop dashboard builder with chart, KPI, table, and text widgets
 - **AI-Powered Reports** — Generate professional reports from your data using 5 templates (Executive Summary, Data Deep-Dive, Monthly Report, Comparison Report, Quick Brief) with real data-driven analysis
-- **AI Chat Assistant** — Ask questions about your data in natural language; get SQL queries, charts, and answers
+- **AI Chat Assistant** — Full-page chat interface with rich content rendering: SQL syntax highlighting, comparative bar charts, metric highlighting, and conversation history
 - **Multi-Agent Architecture** — 20 specialized AI agents with input/output contracts, execution metrics, dispatch timeouts, and dead letter tracking
 - **File Manager** — Visual file browser with thumbnails, tags, search, and database/archive browsing
 - **Notes System** — Markdown notes with auto-save, linked to files or standalone
@@ -76,75 +76,83 @@ See `.env.example` for all options.
 
 ## Pages & UI
 
+The UI follows a dark navy design system with emerald green accents, purple highlights, and a polished data-centric aesthetic. Full RTL support for Hebrew.
+
 ### Login (`/login`)
 
-Centered authentication card on dark background. Email + password form with error handling and link to registration.
+Centered authentication card on dark navy background. Email + password form with emerald accent buttons and link to registration. Language switcher in top corner.
 
 ![Login Page](docs/screenshots/01-login.png)
 
 ### Register (`/register`)
 
-Account creation form with display name, email, password (8+ chars), and link to login.
+Account creation form with display name, email, password (8+ chars). Matches the login design with language switcher.
 
 ![Register Page](docs/screenshots/02-register.png)
 
 ### Files (`/files`)
 
-Main page after login. Collapsible sidebar, drag-and-drop upload zone, searchable file table with type/category badges, quality scores, status indicators, and bulk actions. Supports list and grid view modes with sorting and filtering.
+Project Files page with breadcrumb navigation (Repository / Main Files), list/grid view toggle, and Quantum Upload Gateway drop zone. File table features colored category badges (Behavioral, Spatial, Financial), quality score bars with percentages, status dots (Processed/Processing/Failed/Queued), and pagination. Toolbar includes Select All, Bulk Download, Filters, and Sort controls.
 
 ![Files](docs/screenshots/03-files-list.png)
 
 ### Dashboards (`/dashboards`)
 
-Grid of dashboard cards with "Create Dashboard" button. Cards show title, widget count, and last updated timestamp.
+Dashboard overview with stats cards (Total Visuals with trend, Active Streams with live indicator, System Performance with AI Core Utilization bar chart). Filter tabs (All Types, Recently Updated, Shared). Dashboard cards show mini chart previews, visibility badges (Public/Private/Internal), widget counts, and update timestamps. Includes "Create New View" card with pagination.
 
 ![Dashboards](docs/screenshots/04-dashboards.png)
 
+### AI Chat (`/chat`)
+
+Full-page AI Chat Assistant with Recent Insights panel showing conversation history. Chat supports rich content rendering: highlighted metrics in emerald green, SQL code blocks with PostgreSQL syntax highlighting, comparative bar charts (Revenue Growth by Category with Q3 vs Q4), and action buttons (Helpful, Regenerate). Input bar with attachment, microphone, and send controls. Footer shows "AI-Powered Insights / Verified Data Models".
+
+![AI Chat](docs/screenshots/13-ai-chat.png)
+
 ### Notes (`/notes`)
 
-Two-panel layout. Left: searchable note list with file associations. Right: markdown editor with auto-save and delete.
+Notes Explorer sidebar with synced status badges and file association icons. Editor features auto-save indicator, formatting toolbar (Bold, Italic, List, Code), Linked Assets section, and Preview mode. Bottom stats show Sentiment Shift and Tokens Processed metrics.
 
 ![Notes](docs/screenshots/05-notes.png)
 
 ### Reports (`/reports`)
 
-Full report management with 5 templates (Executive Summary, Data Deep-Dive, Monthly, Comparison, Quick Brief). Create reports from templates, select data sources, generate AI-powered analysis with real file metrics, and export as JSON. Search and filter by status.
+Report management with 5 template cards for quick creation. Report cards show template icon, status badge (Draft/Generating/Ready/Error), and metadata. Search and filter by status.
 
 ![Reports](docs/screenshots/06-reports.png)
 
 #### Executive Summary Report
 
-High-level overview with KPI cards (total files, data volume, quality score, processing rate), data quality breakdown with per-file quality bars, and actionable recommendations for stakeholders.
+"Report Active / Live Stream Connected" status badges. Schema Structure Analysis table with Dataset ID, Columns, Rows, Storage Size, and Health bars. Volume Allocation visualization with Total Payload and Peak Flow metrics. Anomaly Detection alerts with priority levels (High/Medium/Cleared). Cross-Dataset Correlation coefficient matrix. Advanced Curatorial Insight narrative with Index Health and Risk Score cards.
 
 ![Executive Summary Report](docs/screenshots/08-report-executive-summary.png)
 
 #### Data Deep-Dive Report
 
-Comprehensive technical analysis with schema analysis table (columns, rows, size per dataset), size distribution visualization, anomaly detection findings, and correlation analysis across datasets.
+Comprehensive technical breakdown with schema analysis, volume allocation distribution chart, anomaly detection (Skewed Distribution, Missing Entry Pattern, Outlier Resolved), and cross-dataset Pearson correlation matrix heatmap.
 
 ![Data Deep-Dive Report](docs/screenshots/09-report-data-deep-dive.png)
 
 #### Monthly Report
 
-Periodic activity summary with processing pipeline stats (ingested, processed, errors, pending), category breakdown table, quality trends, and month-over-month ingestion metrics.
+Processing pipeline stats (Ingested, Processed, Errors, Pending), category breakdown table, quality trends, and activity timeline.
 
 ![Monthly Report](docs/screenshots/10-report-monthly.png)
 
 #### Comparison Report
 
-Side-by-side dataset comparison table with format, category, size, rows, columns, quality, and status. Includes quality comparison bars, size and quality rankings, and statistical difference analysis.
+Dataset Divergence Analysis with Similarity Score badge. Side-by-side comparison table: Attribute column with File A vs File B showing Format, Category, Size (with Rank badges), Structure (Rows/Columns), Data Quality (Completeness + Consistency bars), and Status (Production Ready / Needs Sanitization). Statistical Difference Analysis cards (Schema Mismatch, Unique Entity Analysis, Outlier Detection, Temporal Drift). Performance Rankings with Quality Leader and Efficiency Score.
 
 ![Comparison Report](docs/screenshots/11-report-comparison.png)
 
 #### Quick Brief Report
 
-One-page dataset summary with primary file snapshot (name, format, size, rows, columns, quality bar), AI-generated insights per file, and key statistics overview.
+Dataset Snapshot with Live Analysis indicator. File metadata card (Format, Total Size, Rows, Cols) alongside a quality ring chart (88%). Metric cards: Integrity (Optimal), Velocity (14.2ms), Outliers (3.1%). AI-Generated Insights with "New Insights Available" badge. Side cards: Ingest Trend bar chart, Top Performing Column, and "Automate Clean?" CTA with Apply Fixes button.
 
 ![Quick Brief Report](docs/screenshots/12-report-quick-brief.png)
 
 ### Settings (`/settings`)
 
-Profile management with server-persisted display name, dark/light theme toggle, AI model configuration (Ollama URL and model selection), server-side storage usage monitoring, cache clearing, and bulk file reprocessing.
+Profile management, dark/light theme toggle, language selector (English/Hebrew with RTL), AI model configuration, server-side storage usage with progress bar, cache clearing, and bulk file reprocessing.
 
 ![Settings](docs/screenshots/07-settings.png)
 
@@ -486,7 +494,7 @@ Per-session shared state enables agents to collaborate without direct coupling:
 data-ruler/
 ├── apps/
 │   ├── web/                        # Next.js frontend + BFF API
-│   │   ├── app/                    # Pages (auth, dashboard, files, notes, reports, settings)
+│   │   ├── app/                    # Pages (auth, dashboard, files, notes, reports, chat, settings)
 │   │   ├── app/api/                # 30+ API routes
 │   │   ├── components/             # 30+ UI components (shadcn/ui based)
 │   │   ├── stores/                 # 6 Zustand stores (auth, chat, files, dashboard, notes, reports)

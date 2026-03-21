@@ -11,6 +11,7 @@ import {
   HelpCircle,
   UserCircle,
   Ruler,
+  MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -23,7 +24,7 @@ import {
 import { useLanguageStore } from "@/stores/language-store"
 
 interface NavItem {
-  labelKey: 'files' | 'dashboards' | 'notes' | 'reports' | 'settings'
+  labelKey: 'files' | 'dashboards' | 'notes' | 'reports' | 'chat' | 'settings'
   icon: React.ElementType
   href: string
 }
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { labelKey: "dashboards", icon: LayoutDashboard, href: "/dashboards" },
   { labelKey: "notes", icon: StickyNote, href: "/notes" },
   { labelKey: "reports", icon: FileText, href: "/reports" },
+  { labelKey: "chat", icon: MessageSquare, href: "/chat" },
   { labelKey: "settings", icon: Settings, href: "/settings" },
 ]
 

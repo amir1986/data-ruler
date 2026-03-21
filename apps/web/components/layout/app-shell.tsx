@@ -24,6 +24,7 @@ import {
   StickyNote,
   FileText,
   Settings,
+  MessageSquare as MessageSquareNav,
 } from "lucide-react"
 import { useLanguageStore } from "@/stores/language-store"
 
@@ -82,6 +83,7 @@ export function AppShell({
     { label: t.nav.dashboards, icon: LayoutDashboard, href: "/dashboards" },
     { label: t.nav.notes, icon: StickyNote, href: "/notes" },
     { label: t.nav.reports, icon: FileText, href: "/reports" },
+    { label: t.nav.chat, icon: MessageSquareNav, href: "/chat" },
     { label: t.nav.settings, icon: Settings, href: "/settings" },
   ]
 
