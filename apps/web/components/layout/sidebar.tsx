@@ -7,31 +7,19 @@ import {
   StickyNote,
   FileText,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Moon,
-  Sun,
+  Upload,
+  HelpCircle,
+  UserCircle,
   Ruler,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Separator } from "@/components/ui/separator"
-import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguageStore } from "@/stores/language-store"
 
 interface NavItem {
@@ -70,64 +58,82 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const { t, isRtl: isRtlDir } = useLanguageStore()
-  const [isDark, setIsDark] = React.useState(false)
-
-  React.useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains("dark")
-    setIsDark(isDarkMode)
-  }, [])
-
-  const toggleTheme = () => {
-    const next = !isDark
-    setIsDark(next)
-    document.documentElement.classList.toggle("dark", next)
-  }
-
-  const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
 
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
-          collapsed ? "w-16" : "w-60"
+          "flex h-full flex-col bg-sidebar text-sidebar-foreground transition-all duration-300",
+          collapsed ? "w-16" : "w-56"
         )}
       >
         {/* Logo */}
-        <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-          <Ruler className="h-6 w-6 shrink-0 text-electric" />
+        <div className="flex items-center gap-2.5 px-5 py-5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+            <Ruler className="h-4 w-4 text-primary" />
+          </div>
           {!collapsed && (
-            <span className="text-lg font-semibold tracking-tight">
-              {t.appName}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold tracking-tight text-white">
+                {t.appName}
+              </span>
+              <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                {t.nav.aiDataManagement}
+              </span>
+            </div>
           )}
         </div>
 
+        {/* Upload Data button */}
+        {!collapsed ? (
+          <div className="px-3 mb-2">
+            <Button
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
+              onClick={() => onNavigate?.("/files")}
+            >
+              <Upload className="h-4 w-4" />
+              {t.nav.uploadData}
+            </Button>
+          </div>
+        ) : (
+          <div className="px-2 mb-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={() => onNavigate?.("/files")}
+                >
+                  <Upload className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side={isRtlDir ? "left" : "right"}>
+                {t.nav.uploadData}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="flex-1 space-y-0.5 px-3 pt-2">
           {navItems.map((item) => {
             const isActive = activePath === item.href
             const label = t.nav[item.labelKey]
             const button = (
-              <Button
+              <button
                 key={item.href}
-                variant="ghost"
                 className={cn(
-                  "w-full justify-start gap-3",
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   collapsed && "justify-center px-0",
-                  isActive &&
-                    "bg-accent text-accent-foreground font-medium"
+                  isActive
+                    ? "bg-secondary text-white"
+                    : "text-muted-foreground hover:bg-secondary/50 hover:text-white"
                 )}
                 onClick={() => onNavigate?.(item.href)}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <item.icon className="h-[18px] w-[18px] shrink-0" />
                 {!collapsed && <span>{label}</span>}
-              </Button>
+              </button>
             )
 
             if (collapsed) {
@@ -139,124 +145,59 @@ export function Sidebar({
               )
             }
 
-            return button
+            return <React.Fragment key={item.href}>{button}</React.Fragment>
           })}
         </nav>
 
-        <Separator />
-
-        {/* Language switcher */}
-        <div className="p-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <LanguageSwitcher collapsed={collapsed} />
-              </div>
-            </TooltipTrigger>
-            {collapsed && (
+        {/* Bottom links */}
+        <div className="px-3 pb-4 space-y-0.5">
+          {/* Support */}
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex w-full items-center justify-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-white transition-colors"
+                >
+                  <HelpCircle className="h-[18px] w-[18px] shrink-0" />
+                </button>
+              </TooltipTrigger>
               <TooltipContent side={isRtlDir ? "left" : "right"}>
-                {t.settings.language}
+                {t.nav.support}
               </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* Theme toggle */}
-        <div className="p-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-3",
-                  collapsed && "justify-center px-0"
-                )}
-                onClick={toggleTheme}
-              >
-                {isDark ? (
-                  <Sun className="h-5 w-5 shrink-0" />
-                ) : (
-                  <Moon className="h-5 w-5 shrink-0" />
-                )}
-                {!collapsed && (
-                  <span>{isDark ? t.nav.lightMode : t.nav.darkMode}</span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side={isRtlDir ? "left" : "right"}>
-                {isDark ? t.nav.lightMode : t.nav.darkMode}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* Collapse toggle */}
-        <div className="p-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-full"
-                onClick={() => onCollapsedChange?.(!collapsed)}
-              >
-                {collapsed ? (
-                  isRtlDir ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-                ) : (
-                  isRtlDir ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side={isRtlDir ? "left" : "right"}>
-                {t.nav.expandSidebar}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* User section */}
-        <div className="border-t border-sidebar-border p-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-3 h-auto py-2",
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                </Avatar>
-                {!collapsed && (
-                  <div className="flex flex-col items-start text-left">
-                    <span className="text-sm font-medium">{user.name}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[140px]">
-                      {user.email}
-                    </span>
-                  </div>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side={collapsed ? (isRtlDir ? "left" : "right") : "top"}
-              align="start"
-              className="w-56"
+            </Tooltip>
+          ) : (
+            <button
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-white transition-colors"
             >
-              <div className="px-2 py-1.5">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onLogout}>
-                <LogOut className="me-2 h-4 w-4" />
-                {t.nav.logOut}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <HelpCircle className="h-[18px] w-[18px] shrink-0" />
+              <span>{t.nav.support}</span>
+            </button>
+          )}
+
+          {/* Account */}
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex w-full items-center justify-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-white transition-colors"
+                  onClick={onLogout}
+                >
+                  <UserCircle className="h-[18px] w-[18px] shrink-0" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side={isRtlDir ? "left" : "right"}>
+                {t.nav.account}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <button
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-white transition-colors"
+              onClick={onLogout}
+            >
+              <UserCircle className="h-[18px] w-[18px] shrink-0" />
+              <span>{t.nav.account}</span>
+            </button>
+          )}
         </div>
       </aside>
     </TooltipProvider>

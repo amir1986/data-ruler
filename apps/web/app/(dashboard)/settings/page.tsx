@@ -110,7 +110,6 @@ export default function SettingsPage() {
 
   const handleClearCache = () => {
     if (confirm(t.settings.clearCacheConfirm)) {
-      // Clear local storage and caches
       localStorage.clear();
       if ('caches' in window) {
         caches.keys().then((names) => {
@@ -123,9 +122,9 @@ export default function SettingsPage() {
   if (!user) {
     return (
       <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-48 bg-zinc-800" />
-        <Skeleton className="h-64 bg-zinc-800 rounded-xl" />
-        <Skeleton className="h-48 bg-zinc-800 rounded-xl" />
+        <Skeleton className="h-8 w-48 bg-card" />
+        <Skeleton className="h-64 bg-card rounded-xl" />
+        <Skeleton className="h-48 bg-card rounded-xl" />
       </div>
     );
   }
@@ -133,29 +132,29 @@ export default function SettingsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-2xl font-bold text-white">{t.settings.title}</h1>
-        <p className="text-sm text-zinc-400 mt-1">
+      <div className="px-6 pt-5 pb-4">
+        <h1 className="text-3xl font-bold text-white">{t.settings.title}</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           {t.settings.subtitle}
         </p>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto px-6 pb-6">
         <div className="max-w-2xl space-y-8">
           {/* Profile Section */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <User className="h-5 w-5 text-zinc-400" />
+              <User className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.profile}</h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
               <div className="space-y-2">
                 <Label className="text-zinc-300">{t.settings.displayName}</Label>
                 <Input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t.settings.displayNamePlaceholder}
-                  className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500"
+                  className="bg-secondary border-border text-white placeholder-muted-foreground"
                 />
               </div>
               <div className="space-y-2">
@@ -163,16 +162,16 @@ export default function SettingsPage() {
                 <Input
                   value={email}
                   disabled
-                  className="bg-zinc-800/50 border-zinc-700 text-zinc-500 cursor-not-allowed"
+                  className="bg-secondary/50 border-border text-muted-foreground cursor-not-allowed"
                 />
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-muted-foreground/60">
                   {t.settings.emailCannotChange}
                 </p>
               </div>
               <Button
                 onClick={handleSaveProfile}
                 disabled={saving}
-                className="bg-blue-600 hover:bg-blue-500 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {saved ? (
                   <>
@@ -198,17 +197,17 @@ export default function SettingsPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               {isDark ? (
-                <Moon className="h-5 w-5 text-zinc-400" />
+                <Moon className="h-5 w-5 text-muted-foreground" />
               ) : (
-                <Sun className="h-5 w-5 text-zinc-400" />
+                <Sun className="h-5 w-5 text-muted-foreground" />
               )}
               <h2 className="text-lg font-semibold text-white">{t.settings.appearance}</h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">{t.settings.darkMode}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {t.settings.toggleTheme}
                   </p>
                 </div>
@@ -223,22 +222,22 @@ export default function SettingsPage() {
           {/* Language */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Languages className="h-5 w-5 text-zinc-400" />
+              <Languages className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.language}</h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">{t.settings.languageLabel}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {t.settings.languageDesc}
                   </p>
                 </div>
                 <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
-                  <SelectTrigger className="w-[140px] bg-zinc-800 border-zinc-700 text-white">
+                  <SelectTrigger className="w-[140px] bg-secondary border-border text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                  <SelectContent className="bg-card border-border">
                     <SelectItem value="en">{t.settings.english}</SelectItem>
                     <SelectItem value="he">{t.settings.hebrew}</SelectItem>
                   </SelectContent>
@@ -250,29 +249,29 @@ export default function SettingsPage() {
           {/* AI Configuration */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Brain className="h-5 w-5 text-zinc-400" />
+              <Brain className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.aiConfig}</h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
               <div className="space-y-2">
                 <Label className="text-zinc-300">{t.settings.ollamaUrl}</Label>
                 <Input
                   value={ollamaUrl}
                   onChange={(e) => setOllamaUrl(e.target.value)}
                   placeholder={t.settings.ollamaUrlPlaceholder}
-                  className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500 font-mono text-sm"
+                  className="bg-secondary border-border text-white placeholder-muted-foreground font-mono text-sm"
                 />
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-muted-foreground/60">
                   {t.settings.ollamaUrlDesc}
                 </p>
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-300">{t.settings.modelSelection}</Label>
                 <Select value={aiModel} onValueChange={setAiModel}>
-                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectTrigger className="bg-secondary border-border text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                  <SelectContent className="bg-card border-border">
                     <SelectItem value="qwen2.5:7b">Qwen 2.5 7B (Default)</SelectItem>
                     <SelectItem value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</SelectItem>
                     <SelectItem value="llama3.1:8b">Llama 3.1 8B</SelectItem>
@@ -283,7 +282,7 @@ export default function SettingsPage() {
                     <SelectItem value="nomic-embed-text">Nomic Embed Text</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-muted-foreground/60">
                   {t.settings.modelDesc}
                 </p>
               </div>
@@ -293,36 +292,36 @@ export default function SettingsPage() {
           {/* Data Management */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <HardDrive className="h-5 w-5 text-zinc-400" />
+              <HardDrive className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">
                 {t.settings.dataManagement}
               </h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">
                     {t.settings.storageUsage}
                   </p>
-                  <p className="text-xs text-zinc-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {storageUsed || t.settings.calculating}
                   </p>
                 </div>
                 {storageUsed && (
-                  <div className="h-2 w-32 rounded-full bg-zinc-800">
+                  <div className="h-2 w-32 rounded-full bg-secondary">
                     <div
-                      className="h-full rounded-full bg-blue-500"
+                      className="h-full rounded-full bg-primary"
                       style={{ width: `${storagePercent}%` }}
                     />
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-zinc-800 pt-4 flex flex-wrap gap-3">
+              <div className="border-t border-border pt-4 flex flex-wrap gap-3">
                 <Button
                   variant="outline"
                   onClick={handleClearCache}
-                  className="border-zinc-700 text-zinc-300 hover:text-red-400 hover:border-red-500/50"
+                  className="border-border text-zinc-300 hover:text-red-400 hover:border-red-500/50"
                 >
                   <Trash2 className="h-4 w-4 me-2" />
                   {t.settings.clearCache}
@@ -342,13 +341,13 @@ export default function SettingsPage() {
                     }
                   }}
                   disabled={reprocessing}
-                  className="border-zinc-700 text-zinc-300 hover:text-blue-400 hover:border-blue-500/50"
+                  className="border-border text-zinc-300 hover:text-primary hover:border-primary/50"
                 >
                   <RefreshCw className={`h-4 w-4 me-2 ${reprocessing ? 'animate-spin' : ''}`} />
                   {reprocessing ? t.settings.reprocessing : t.settings.reprocessAll}
                 </Button>
               </div>
-              <p className="text-xs text-zinc-600 mt-2">
+              <p className="text-xs text-muted-foreground/60 mt-2">
                 {t.settings.cacheDesc}
               </p>
             </div>
@@ -357,20 +356,20 @@ export default function SettingsPage() {
           {/* About */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Info className="h-5 w-5 text-zinc-400" />
+              <Info className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.about}</h2>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-zinc-300">{t.settings.appVersion}</p>
-                <p className="text-sm font-mono text-zinc-400">0.1.0</p>
+                <p className="text-sm font-mono text-muted-foreground">0.1.0</p>
               </div>
-              <div className="border-t border-zinc-800 pt-3 space-y-2">
+              <div className="border-t border-border pt-3 space-y-2">
                 <a
                   href="https://github.com/data-ruler/data-ruler"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-zinc-400 hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   {t.settings.githubRepo}
@@ -379,7 +378,7 @@ export default function SettingsPage() {
                   href="https://github.com/data-ruler/data-ruler/issues"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-zinc-400 hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   {t.settings.reportIssue}
@@ -388,14 +387,14 @@ export default function SettingsPage() {
                   href="https://github.com/data-ruler/data-ruler/wiki"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-zinc-400 hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
                   {t.settings.documentation}
                 </a>
               </div>
-              <div className="border-t border-zinc-800 pt-3">
-                <p className="text-xs text-zinc-600">
+              <div className="border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground/60">
                   {t.appDescription}
                 </p>
               </div>

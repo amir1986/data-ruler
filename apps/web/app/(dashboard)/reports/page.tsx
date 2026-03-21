@@ -41,10 +41,10 @@ import ReportViewer from '@/components/reports/report-viewer';
 
 function getStatusStyle(status: string) {
   const styles: Record<string, string> = {
-    draft: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30',
-    generating: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    ready: 'bg-green-500/20 text-green-400 border-green-500/30',
-    error: 'bg-red-500/20 text-red-400 border-red-500/30',
+    draft: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30',
+    generating: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    ready: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    error: 'bg-red-500/20 text-red-300 border-red-500/30',
   };
   return styles[status] || styles.draft;
 }
@@ -76,9 +76,9 @@ export default function ReportsPage() {
       title: t.reports.monthlyReport,
       description: t.reports.monthlyReportDesc,
       icon: Calendar,
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/10',
-      borderColor: 'border-green-500/30',
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-500/10',
+      borderColor: 'border-emerald-500/30',
     },
     {
       id: 'comparison_report',
@@ -190,39 +190,39 @@ export default function ReportsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+      <div className="px-6 pt-5 pb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t.reports.title}</h1>
-          <p className="text-sm text-zinc-400 mt-1">
+          <h1 className="text-3xl font-bold text-white">{t.reports.title}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {t.reports.subtitle}
           </p>
         </div>
         <Button
           onClick={() => setShowCreate(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
         >
-          <Plus className="h-4 w-4 me-2" />
+          <Plus className="h-4 w-4" />
           {t.reports.newReport}
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className="flex-1 overflow-auto px-6 pb-6 space-y-6">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t.reports.searchReports}
-              className="ps-9 bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500"
+              className="ps-9 bg-card border-border text-white placeholder-muted-foreground"
             />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[140px] bg-zinc-900 border-zinc-800 text-zinc-300">
+            <SelectTrigger className="w-[140px] bg-card border-border text-zinc-300">
               <SelectValue placeholder={t.reports.statusLabel} />
             </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-800">
+            <SelectContent className="bg-card border-border">
               <SelectItem value="all">{t.reports.allStatuses}</SelectItem>
               <SelectItem value="draft">{t.reports.draft}</SelectItem>
               <SelectItem value="generating">{t.reports.generating}</SelectItem>
@@ -234,7 +234,7 @@ export default function ReportsPage() {
 
         {/* Report Templates (quick create) */}
         <div>
-          <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
+          <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             {t.reports.quickCreate}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -245,7 +245,7 @@ export default function ReportsPage() {
                   setSelectedTemplate(template.id);
                   setShowCreate(true);
                 }}
-                className={`group rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-start hover:border-zinc-700 transition-all hover:shadow-lg`}
+                className="group rounded-xl border border-border bg-card p-4 text-start hover:border-muted-foreground/30 transition-all hover:shadow-lg"
               >
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-lg ${template.bgColor} mb-3`}
@@ -255,7 +255,7 @@ export default function ReportsPage() {
                 <h4 className="text-sm font-semibold text-white mb-1">
                   {template.title}
                 </h4>
-                <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                   {template.description}
                 </p>
               </button>
@@ -265,25 +265,25 @@ export default function ReportsPage() {
 
         {/* Reports List */}
         <div>
-          <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
+          <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             {t.reports.yourReports} ({filteredReports.length})
           </h3>
 
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-48 bg-zinc-800 rounded-xl" />
+                <Skeleton key={i} className="h-48 bg-card rounded-xl" />
               ))}
             </div>
           ) : filteredReports.length === 0 ? (
-            <div className="text-center py-16 rounded-xl border border-zinc-800 bg-zinc-900">
-              <FileText className="h-12 w-12 mx-auto text-zinc-600 mb-3" />
-              <p className="text-zinc-400 font-medium">
+            <div className="text-center py-16 rounded-xl border border-border bg-card">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground font-medium">
                 {search || filterStatus !== 'all'
                   ? t.reports.noMatchingReports
                   : t.reports.noReportsYet}
               </p>
-              <p className="text-zinc-500 text-sm mt-1">
+              <p className="text-muted-foreground/60 text-sm mt-1">
                 {search || filterStatus !== 'all'
                   ? t.reports.tryDifferentCriteria
                   : t.reports.createFromTemplate}
@@ -291,9 +291,9 @@ export default function ReportsPage() {
               {!search && filterStatus === 'all' && (
                 <Button
                   onClick={() => setShowCreate(true)}
-                  className="mt-4 bg-blue-600 hover:bg-blue-500 text-white"
+                  className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
                 >
-                  <Plus className="h-4 w-4 me-2" />
+                  <Plus className="h-4 w-4" />
                   {t.reports.createFirstReport}
                 </Button>
               )}
@@ -306,7 +306,7 @@ export default function ReportsPage() {
                 return (
                   <div
                     key={report.id}
-                    className="group relative rounded-xl border border-zinc-800 bg-zinc-900 p-5 hover:border-zinc-700 transition-colors"
+                    className="group relative rounded-xl border border-border bg-card p-5 hover:border-muted-foreground/30 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div
@@ -317,7 +317,7 @@ export default function ReportsPage() {
                         />
                       </div>
                       <Badge
-                        className={`${getStatusStyle(report.status)} border`}
+                        className={`${getStatusStyle(report.status)} border text-[10px] font-semibold uppercase tracking-wider`}
                       >
                         {report.status === 'generating' && (
                           <RefreshCw className="h-3 w-3 me-1 animate-spin" />
@@ -330,12 +330,12 @@ export default function ReportsPage() {
                       {report.title}
                     </h3>
                     {report.description && (
-                      <p className="text-sm text-zinc-400 line-clamp-2 mb-3">
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                         {report.description}
                       </p>
                     )}
 
-                    <div className="flex items-center gap-4 text-xs text-zinc-500 mt-auto pt-3 border-t border-zinc-800">
+                    <div className="flex items-center gap-4 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-auto pt-3 border-t border-border">
                       <span className="flex items-center gap-1">
                         <FileText className="h-3 w-3" />
                         {template.title}
@@ -351,7 +351,7 @@ export default function ReportsPage() {
                       {report.status === 'draft' && (
                         <button
                           onClick={() => handleGenerate(report)}
-                          className="p-1.5 rounded-md text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 transition-colors"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
                           title={t.reports.generateReport}
                         >
                           <Zap className="h-4 w-4" />
@@ -360,7 +360,7 @@ export default function ReportsPage() {
                       {report.status === 'ready' && (
                         <button
                           onClick={() => fetchReport(report.id)}
-                          className="p-1.5 rounded-md text-zinc-500 hover:text-green-400 hover:bg-zinc-800 transition-colors"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-emerald-400 hover:bg-secondary transition-colors"
                           title={t.reports.viewReport}
                         >
                           <Eye className="h-4 w-4" />
@@ -372,7 +372,7 @@ export default function ReportsPage() {
                         e.stopPropagation();
                         handleDelete(report.id);
                       }}
-                      className="absolute top-3 end-3 p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-all"
+                      className="absolute top-3 end-3 p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 hover:bg-secondary transition-all"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -398,10 +398,10 @@ export default function ReportsPage() {
 
       {/* Create Report Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-lg">
+        <DialogContent className="bg-card border-border text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-white">{t.reports.createNewReport}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               {t.reports.chooseTemplate}
             </DialogDescription>
           </DialogHeader>
@@ -419,7 +419,7 @@ export default function ReportsPage() {
                     className={`flex items-center gap-3 rounded-lg border p-3 text-start transition-colors ${
                       selectedTemplate === template.id
                         ? `${template.borderColor} ${template.bgColor}`
-                        : 'border-zinc-800 hover:border-zinc-700'
+                        : 'border-border hover:border-muted-foreground/30'
                     }`}
                   >
                     <div
@@ -433,7 +433,7 @@ export default function ReportsPage() {
                       <p className="text-sm font-medium text-white">
                         {template.title}
                       </p>
-                      <p className="text-xs text-zinc-500 truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {template.description}
                       </p>
                     </div>
@@ -455,7 +455,7 @@ export default function ReportsPage() {
                     ? `${getTemplateInfo(selectedTemplate).title} - ${format(new Date(), 'MMM d, yyyy')}`
                     : t.reports.reportTitlePlaceholder
                 }
-                className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500"
+                className="bg-secondary border-border text-white placeholder-muted-foreground"
               />
             </div>
 
@@ -465,11 +465,11 @@ export default function ReportsPage() {
                 <label className="text-sm font-medium text-zinc-300">
                   {t.reports.dataSources} ({selectedFileIds.length} {t.reports.dataSourcesSelected})
                 </label>
-                <div className="max-h-40 overflow-auto rounded-lg border border-zinc-800 divide-y divide-zinc-800">
+                <div className="max-h-40 overflow-auto rounded-lg border border-border divide-y divide-border">
                   {readyFiles.map((file) => (
                     <label
                       key={file.id}
-                      className="flex items-center gap-3 p-2.5 hover:bg-zinc-800/50 cursor-pointer"
+                      className="flex items-center gap-3 p-2.5 hover:bg-secondary/50 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -483,21 +483,21 @@ export default function ReportsPage() {
                             );
                           }
                         }}
-                        className="rounded border-zinc-600 bg-zinc-800"
+                        className="rounded border-border bg-secondary"
                       />
                       <span className="text-sm text-zinc-300 truncate">
                         {file.original_name}
                       </span>
                       <Badge
                         variant="secondary"
-                        className="bg-zinc-800 text-zinc-400 text-[10px] ms-auto shrink-0"
+                        className="bg-secondary text-muted-foreground text-[10px] ms-auto shrink-0"
                       >
                         {file.file_type}
                       </Badge>
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-muted-foreground/60">
                   {t.reports.dataSourcesHint}
                 </p>
               </div>
@@ -507,15 +507,15 @@ export default function ReportsPage() {
               <Button
                 onClick={handleCreate}
                 disabled={!selectedTemplate}
-                className="bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 gap-2"
               >
-                <Plus className="h-4 w-4 me-2" />
+                <Plus className="h-4 w-4" />
                 {t.reports.createReport}
               </Button>
               <Button
                 variant="ghost"
                 onClick={() => setShowCreate(false)}
-                className="text-zinc-400"
+                className="text-muted-foreground"
               >
                 {t.cancel}
               </Button>
@@ -529,12 +529,12 @@ export default function ReportsPage() {
         open={!!activeReport}
         onOpenChange={(open) => !open && setActiveReport(null)}
       >
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-4xl max-h-[85vh] overflow-auto">
+        <DialogContent className="bg-card border-border text-white max-w-4xl max-h-[85vh] overflow-auto">
           <DialogHeader>
             <DialogTitle className="text-white text-xl">
               {activeReport?.title}
             </DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               {activeReport &&
                 `${getTemplateInfo(activeReport.template).title} - ${t.reports.generated} ${format(new Date(activeReport.updated_at), 'MMM d, yyyy h:mm a')}`}
             </DialogDescription>
@@ -544,10 +544,10 @@ export default function ReportsPage() {
               <ReportViewer report={activeReport} />
 
               {/* Metadata */}
-              <div className="border-t border-zinc-800 pt-4">
+              <div className="border-t border-border pt-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">
                       {t.reports.template}
                     </p>
                     <p className="text-zinc-200 mt-1">
@@ -555,17 +555,17 @@ export default function ReportsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">
                       {t.reports.statusLabel}
                     </p>
                     <Badge
-                      className={`${getStatusStyle(activeReport.status)} border mt-1`}
+                      className={`${getStatusStyle(activeReport.status)} border mt-1 text-[10px] font-semibold uppercase tracking-wider`}
                     >
                       {activeReport.status}
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">
                       {t.reports.dataSources}
                     </p>
                     <p className="text-zinc-200 mt-1">
@@ -573,7 +573,7 @@ export default function ReportsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">
                       {t.files.created}
                     </p>
                     <p className="text-zinc-200 mt-1">
@@ -601,7 +601,7 @@ export default function ReportsPage() {
                     URL.revokeObjectURL(url);
                   }}
                   variant="outline"
-                  className="border-zinc-700 text-zinc-300"
+                  className="border-border text-zinc-300"
                 >
                   <Download className="h-4 w-4 me-2" />
                   {t.reports.exportJson}
@@ -609,7 +609,7 @@ export default function ReportsPage() {
                 <Button
                   onClick={() => handleGenerate(activeReport)}
                   variant="outline"
-                  className="border-zinc-700 text-zinc-300"
+                  className="border-border text-zinc-300"
                 >
                   <RefreshCw className="h-4 w-4 me-2" />
                   {t.reports.regenerate}
