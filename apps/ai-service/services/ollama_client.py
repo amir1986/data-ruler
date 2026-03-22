@@ -79,6 +79,23 @@ def _strip_code_fences(text: str) -> str:
     return m.group(1).strip() if m else text
 
 
+def _ensure_alternating_roles(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Merge consecutive same-role messages to satisfy providers that require
+    strict user/assistant alternation (e.g. Ollama Cloud)."""
+    if not messages:
+        return messages
+    result: list[dict[str, str]] = [messages[0]]
+    for msg in messages[1:]:
+        if msg["role"] == result[-1]["role"]:
+            result[-1] = {
+                "role": result[-1]["role"],
+                "content": result[-1]["content"] + "\n\n" + msg["content"],
+            }
+        else:
+            result.append(msg)
+    return result
+
+
 class Provider:
     GROQ = "groq"
     OPENROUTER = "openrouter"
@@ -210,6 +227,7 @@ class CloudLLMClient:
         all_messages = list(messages)
         if system:
             all_messages = [{"role": "system", "content": system}] + all_messages
+        all_messages = _ensure_alternating_roles(all_messages)
 
         last_error: Exception | None = None
         for provider in self.providers:
@@ -251,6 +269,11 @@ class CloudLLMClient:
                 headers=cfg["headers"],
                 json=payload,
             )
+            if resp.status_code >= 400:
+                logger.error(
+                    "LLM API error %s: %s (model=%s, msg_count=%d)",
+                    resp.status_code, resp.text[:500], model, len(messages),
+                )
             resp.raise_for_status()
             data = resp.json()
 
@@ -337,6 +360,7 @@ class CloudLLMClient:
         all_messages = list(messages)
         if system:
             all_messages = [{"role": "system", "content": system}] + all_messages
+        all_messages = _ensure_alternating_roles(all_messages)
 
         last_error: Exception | None = None
         for provider in self.providers:
