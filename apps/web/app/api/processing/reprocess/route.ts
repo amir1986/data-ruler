@@ -79,20 +79,37 @@ export async function POST(req: NextRequest) {
       resetStmt.run(file.id, user.id);
     }
 
-    // Trigger AI service processing for each file
+    // Trigger AI service processing for each file.
+    // Send file bytes so it works with separate storage (Fly.io).
     let triggered = 0;
     for (const file of files) {
       try {
-        await fetch(`${AI_SERVICE_URL}/api/files/process`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            file_id: file.id,
-            user_id: user.id,
-            file_path: file.stored_path,
-            original_name: file.original_name,
-          }),
-        });
+        const filePath = file.stored_path;
+        const fs = await import('fs');
+        if (filePath && fs.existsSync(filePath)) {
+          const fileBuffer = fs.readFileSync(filePath);
+          const formData = new FormData();
+          formData.append('file', new Blob([fileBuffer]), file.original_name);
+          formData.append('file_id', file.id);
+          formData.append('user_id', user.id);
+          formData.append('original_name', file.original_name);
+          await fetch(`${AI_SERVICE_URL}/api/files/upload-and-process`, {
+            method: 'POST',
+            body: formData,
+          });
+        } else {
+          // File not on disk — try path-based processing (local dev)
+          await fetch(`${AI_SERVICE_URL}/api/files/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file_id: file.id,
+              user_id: user.id,
+              file_path: file.stored_path,
+              original_name: file.original_name,
+            }),
+          });
+        }
         triggered++;
       } catch (err) {
         console.error(`Failed to trigger reprocess for ${file.id}:`, err);

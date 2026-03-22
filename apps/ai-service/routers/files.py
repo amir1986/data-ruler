@@ -7,7 +7,7 @@ import json
 from uuid import uuid4
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
 from pydantic import BaseModel
 from models.schemas import AgentMessage, AgentMessageType
 
@@ -245,6 +245,40 @@ async def trigger_processing(req: ProcessRequest, background_tasks: BackgroundTa
         req.original_name,
     )
     return {"status": "processing", "file_id": req.file_id}
+
+
+@router.post("/upload-and-process")
+async def upload_and_process(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    file_id: str = Form(...),
+    user_id: str = Form(...),
+    original_name: str = Form(...),
+):
+    """Receive file bytes from web app and trigger processing.
+
+    Used in production where web and AI services have separate storage.
+    The web app sends the actual file content instead of just a path.
+    """
+    # Save file to AI service's own upload volume
+    upload_dir = os.path.join(UPLOAD_PATH, user_id, file_id)
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, original_name)
+
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    logger.info(f"Received file {original_name} ({len(content)} bytes) for {file_id}")
+
+    background_tasks.add_task(
+        run_processing_pipeline,
+        file_id,
+        user_id,
+        file_path,
+        original_name,
+    )
+    return {"status": "processing", "file_id": file_id}
 
 
 @router.get("/status/{file_id}")

@@ -70,21 +70,24 @@ export async function POST(req: NextRequest) {
         'pending'
       );
 
+      // Send file to AI service for processing.
+      // Uses upload-and-process (sends bytes) so it works when
+      // web and AI service have separate storage (e.g. Fly.io).
       try {
-        fetch(`${AI_SERVICE_URL}/api/files/process`, {
+        const aiFormData = new FormData();
+        aiFormData.append('file', new Blob([buffer]), file.name);
+        aiFormData.append('file_id', fileId);
+        aiFormData.append('user_id', user.id);
+        aiFormData.append('original_name', file.name);
+
+        fetch(`${AI_SERVICE_URL}/api/files/upload-and-process`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            file_id: fileId,
-            user_id: user.id,
-            file_path: storedPath,
-            original_name: file.name,
-          }),
+          body: aiFormData,
         }).catch((err) => {
-          console.error(`Failed to notify AI service for file ${fileId}:`, err);
+          console.error(`Failed to send file to AI service for ${fileId}:`, err);
         });
       } catch {
-        console.error(`Failed to notify AI service for file ${fileId}`);
+        console.error(`Failed to send file to AI service for ${fileId}`);
       }
 
       results.push({
