@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { message, contextFileId, contextDashboardId } = body;
+    const { message, contextFileId, contextDashboardId, contextId } = body;
 
     if (!message || typeof message !== 'string') {
       return errorResponse('Message is required', 400);
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         context_file_id: contextFileId || null,
         context_dashboard_id: contextDashboardId || null,
+        context_id: contextId || null,
         conversation_history: history.reverse(),
       }),
     });
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const reader = aiResponse.body.getReader();
     const decoder = new TextDecoder();
-    let fullResponse = '';
+    let fullContent = '';
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -71,9 +72,20 @@ export async function POST(req: NextRequest) {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
-            fullResponse += chunk;
 
-            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: chunk })}\n\n`));
+            // Parse SSE lines from AI service to extract content for saving
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ') && line.slice(6) !== '[DONE]') {
+                try {
+                  const parsed = JSON.parse(line.slice(6));
+                  if (parsed.content) fullContent += parsed.content;
+                } catch { /* skip non-JSON */ }
+              }
+            }
+
+            // Pass through the AI service SSE data directly (preserves context_id, intent)
+            controller.enqueue(new TextEncoder().encode(chunk));
           }
 
           // Save assistant response
@@ -81,9 +93,8 @@ export async function POST(req: NextRequest) {
           db.prepare(
             `INSERT INTO chat_messages (id, user_id, role, content, context_file_id, context_dashboard_id)
              VALUES (?, ?, ?, ?, ?, ?)`
-          ).run(assistantMsgId, user.id, 'assistant', fullResponse, contextFileId || null, contextDashboardId || null);
+          ).run(assistantMsgId, user.id, 'assistant', fullContent, contextFileId || null, contextDashboardId || null);
 
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ done: true })}\n\n`));
           controller.close();
         } catch (err) {
           console.error('Stream error:', err);

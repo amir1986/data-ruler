@@ -19,6 +19,7 @@ interface ChatState {
   streaming: boolean;
   contextFileId: string | null;
   contextDashboardId: string | null;
+  contextId: string | null;
 
   setOpen: (open: boolean) => void;
   toggleOpen: () => void;
@@ -39,6 +40,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: false,
   contextFileId: null,
   contextDashboardId: null,
+  contextId: null,
 
   setOpen: (isOpen) => set({ isOpen }),
   toggleOpen: () => set((s) => ({ isOpen: !s.isOpen })),
@@ -68,7 +70,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content) => {
-    const { contextFileId, contextDashboardId } = get();
+    const { contextFileId, contextDashboardId, contextId } = get();
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -97,6 +99,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           message: content,
           contextFileId,
           contextDashboardId,
+          contextId,
         }),
       });
 
@@ -126,6 +129,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   accumulated += parsed.content;
                   get().updateLastMessage(accumulated);
                 }
+                if (parsed.context_id) {
+                  set({ contextId: parsed.context_id });
+                }
               } catch {
                 // Skip non-JSON lines
               }
@@ -142,6 +148,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearHistory: async () => {
     await fetch('/api/chat/history', { method: 'DELETE' });
-    set({ messages: [] });
+    set({ messages: [], contextId: null });
   },
 }));
