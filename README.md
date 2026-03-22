@@ -30,7 +30,7 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 | AI / LLM | Groq (free), OpenRouter (free), HuggingFace Inference API (free), Ollama Cloud |
 | Embeddings | HuggingFace sentence-transformers |
 | Auth | JWT + bcrypt, cookie-based sessions |
-| Deployment | Docker Compose |
+| Deployment | Docker Compose, Fly.io (free), Oracle Cloud (free) |
 
 ## Quick Start
 
@@ -46,11 +46,192 @@ Open http://localhost:3000 and create an account.
 
 Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), [HuggingFace](https://huggingface.co/settings/tokens), or use an [Ollama](https://ollama.com/) cloud API key.
 
-## Deploy to a Domain
+## Deploy to Production (Free — $0)
 
-1. In `.env`, set `NEXTAUTH_URL=https://yourdomain.com` and generate a strong `NEXTAUTH_SECRET`
-2. Point your domain's DNS A record to your server IP
-3. Put a reverse proxy (e.g. [Caddy](https://caddyserver.com/) or Nginx) in front of port 3000 to handle HTTPS
+Two free deployment options. Both give you HTTPS, a public URL, and persistent storage for your databases.
+
+### Option A: Fly.io (Easiest — free tier, no server to manage)
+
+[Fly.io](https://fly.io) runs your Docker containers on their infrastructure. Free tier includes 3 shared VMs with 256MB RAM each and 1GB persistent volumes — enough for both services. Services auto-start on incoming requests and auto-stop when idle (no cold start penalty like Render).
+
+**Prerequisites:** A free Fly.io account and the `flyctl` CLI.
+
+**Step 1 — Install the Fly CLI**
+
+```bash
+# macOS / Linux
+curl -L https://fly.io/install.sh | sh
+
+# Windows (PowerShell)
+powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
+```
+
+**Step 2 — Sign up and log in**
+
+```bash
+fly auth signup    # Creates a free account (or use: fly auth login)
+```
+
+**Step 3 — Deploy the AI service first**
+
+```bash
+cd data-ruler
+
+# Launch the Python AI service
+fly launch --config fly.ai-service.toml --no-deploy
+fly volumes create ai_service_data --size 1 --region iad --yes -a data-ruler-ai
+
+# Set your LLM API key (get a free one at https://console.groq.com/keys)
+fly secrets set GROQ_API_KEY=gsk_your_key_here -a data-ruler-ai
+
+# Deploy
+fly deploy --config fly.ai-service.toml
+```
+
+Note the URL printed at the end (e.g., `https://data-ruler-ai.fly.dev`).
+
+**Step 4 — Deploy the web app**
+
+```bash
+# Launch the Next.js web app
+fly launch --config fly.toml --no-deploy
+fly volumes create data_ruler_data --size 1 --region iad --yes -a data-ruler-web
+
+# Set secrets (replace the AI_SERVICE_URL with your actual AI service URL from Step 3)
+fly secrets set \
+  NEXTAUTH_SECRET=$(openssl rand -base64 32) \
+  NEXTAUTH_URL=https://data-ruler-web.fly.dev \
+  AI_SERVICE_URL=https://data-ruler-ai.fly.dev \
+  -a data-ruler-web
+
+# Deploy
+fly deploy --config fly.toml
+```
+
+**Step 5 — Open your app**
+
+```bash
+fly open -a data-ruler-web
+```
+
+Your app is live at `https://data-ruler-web.fly.dev` with persistent SQLite/DuckDB storage.
+
+> **Free tier includes:** 3 shared-cpu VMs (256MB each), 1GB persistent volumes, automatic HTTPS, auto-start/stop. No credit card required to start.
+
+---
+
+### Option B: Oracle Cloud Always Free (Best specs — 24GB RAM, forever free)
+
+[Oracle Cloud](https://cloud.oracle.com) offers an **always-free** ARM VM with 4 CPUs, 24GB RAM, and 200GB disk — permanently, no time limit. This is the best free option for production use. You run Docker Compose on the VM, just like localhost but publicly accessible.
+
+**Step 1 — Create a free Oracle Cloud account**
+
+Go to [cloud.oracle.com/free](https://www.oracle.com/cloud/free/) and sign up. A credit card is required for identity verification but **you will not be charged** — the Always Free tier is permanent and separate from any trial credits.
+
+**Step 2 — Create an Always Free VM**
+
+1. In the Oracle Cloud Console, go to **Compute → Instances → Create Instance**
+2. Configure:
+   - **Image:** Ubuntu 22.04 (or Oracle Linux)
+   - **Shape:** Click "Change Shape" → **Ampere** → **VM.Standard.A1.Flex** → 4 OCPUs, 24GB RAM
+   - **Networking:** Ensure "Assign a public IPv4 address" is checked
+   - **SSH key:** Upload your public key or let Oracle generate one (download it)
+3. Click **Create** and wait for the instance to be "Running"
+4. Copy the **Public IP address** from the instance details page
+
+**Step 3 — Open firewall ports**
+
+In Oracle Cloud Console:
+
+1. Go to **Networking → Virtual Cloud Networks** → click your VCN → **Security Lists** → **Default Security List**
+2. Click **Add Ingress Rules** and add:
+   - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `80`, Protocol: TCP
+   - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `443`, Protocol: TCP
+
+Then SSH into the VM and open the OS firewall too:
+
+```bash
+ssh ubuntu@<your-public-ip>
+sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+**Step 4 — Install Docker**
+
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+**Step 5 — Clone and configure**
+
+```bash
+git clone <your-repo-url> data-ruler
+cd data-ruler
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```bash
+nano .env
+```
+
+Set these values:
+
+```env
+NEXTAUTH_SECRET=<run: openssl rand -base64 32>
+NEXTAUTH_URL=https://yourdomain.com
+AI_SERVICE_URL=http://ai-service:8000
+GROQ_API_KEY=gsk_your_key_here
+```
+
+**Step 6 — Set up HTTPS with Caddy (automatic SSL)**
+
+Create a `Caddyfile` in the project root:
+
+```
+yourdomain.com {
+    reverse_proxy web:3000
+}
+```
+
+Add Caddy to `docker-compose.yml` by creating a `docker-compose.override.yml`:
+
+```yaml
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    depends_on:
+      - web
+  web:
+    ports: !override []
+
+volumes:
+  caddy_data:
+```
+
+> **No custom domain?** You can use a free subdomain from [DuckDNS](https://www.duckdns.org) — just point it to your Oracle VM's IP and use that in the Caddyfile.
+
+**Step 7 — Deploy**
+
+```bash
+./deploy.sh
+```
+
+Your app is live at `https://yourdomain.com` with 24GB RAM, persistent storage, and no usage limits.
+
+> **What you get for free, forever:** 4 ARM CPUs, 24GB RAM, 200GB boot volume, 10TB/month outbound data. No sleep, no cold starts, no time limits.
 
 ## Environment Variables
 
@@ -512,8 +693,11 @@ data-ruler/
 │
 ├── data/                           # Runtime data (gitignored)
 ├── scripts/                        # Utility scripts (screenshot generation)
-├── docker-compose.yml              # Cloud-only (Groq/OpenRouter/HF/Ollama Cloud)
-├── start.sh                        # One-command startup
+├── docker-compose.yml              # Docker Compose for self-hosted / Oracle Cloud
+├── fly.toml                        # Fly.io config — Next.js web app
+├── fly.ai-service.toml             # Fly.io config — Python AI service
+├── deploy.sh                       # One-command Docker deploy with version stamping
+├── start.sh                        # Local startup (no Docker)
 └── .env.example                    # Configuration template
 ```
 
