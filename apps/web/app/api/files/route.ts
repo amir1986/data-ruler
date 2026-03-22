@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
     return successResponse({
       files: (files as Record<string, unknown>[]).map((f) => ({
         ...f,
-        tags: JSON.parse((f.tags as string) || '[]'),
+        tags: safeJsonParse(f.tags as string, []),
       })),
       pagination: {
         page,

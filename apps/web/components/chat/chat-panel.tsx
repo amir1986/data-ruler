@@ -7,6 +7,7 @@ import {
 import { useChatStore, type ChatMessage } from '@/stores/chat-store';
 import { useFileStore } from '@/stores/file-store';
 import { useLanguageStore } from '@/stores/language-store';
+import { safeDate } from '@/lib/utils';
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
@@ -37,7 +38,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           )}
         </div>
         <div className="text-[10px] opacity-50 mt-1">
-          {new Date(message.created_at).toLocaleTimeString()}
+          {safeDate(message.created_at)?.toLocaleTimeString() ?? '—'}
         </div>
       </div>
     </div>

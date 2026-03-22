@@ -40,6 +40,7 @@ import {
   X,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language-store';
 
 // --- Helpers ---
@@ -418,7 +419,7 @@ export default function FilesPage() {
                               {file.original_name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {format(new Date(file.created_at), "'Modified' h'h' 'ago'")}
+                              {safeFormatDate(file.created_at, "'Modified' h'h' 'ago'")}
                             </p>
                           </div>
                         </div>
@@ -629,7 +630,7 @@ export default function FilesPage() {
                 <div>
                   <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.created}</p>
                   <p className="text-zinc-200 mt-1">
-                    {format(new Date(detailFile.created_at), 'MMM d, yyyy h:mm a')}
+                    {safeFormatDate(detailFile.created_at, 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
                 <div>

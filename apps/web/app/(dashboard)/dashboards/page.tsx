@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language-store';
 
 export default function DashboardsPage() {
@@ -224,7 +225,7 @@ export default function DashboardsPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {t.dashboards.updated} {format(new Date(dashboard.updated_at), "h'H' 'AGO'")}
+                        {t.dashboards.updated} {safeFormatDate(dashboard.updated_at, "h'H' 'AGO'")}
                       </span>
                     </div>
 

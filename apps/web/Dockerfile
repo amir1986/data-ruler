@@ -3,8 +3,8 @@ FROM node:20-alpine AS base
 # Install dependencies
 FROM base AS deps
 WORKDIR /app
-COPY package.json ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm install --legacy-peer-deps --network-timeout=120000
 
 # Build
 FROM base AS builder
@@ -27,10 +27,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Create data directories
-RUN mkdir -p /data/databases /data/uploads && chown -R nextjs:nodejs /data
+# Entrypoint script to fix volume permissions at runtime
+RUN printf '#!/bin/sh\nchown -R nextjs:nodejs /data\nexec su-exec nextjs node server.js\n' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
 
-USER nextjs
+RUN apk add --no-cache su-exec
+
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["/app/entrypoint.sh"]

@@ -7,6 +7,7 @@ import {
   MoreVertical, Trash2, Eye, MessageSquare, RefreshCw,
 } from 'lucide-react';
 import { useFileStore, type FileItem } from '@/stores/file-store';
+import { safeDate } from '@/lib/utils';
 import { useChatStore } from '@/stores/chat-store';
 import { useLanguageStore } from '@/stores/language-store';
 import { formatDistanceToNow } from 'date-fns';
@@ -87,7 +88,7 @@ function FileRow({ file, isSelected, onSelect, onDelete, onAddToChat }: FileRowP
             <span className="text-xs text-zinc-500">{file.row_count.toLocaleString()} {t.files.rows.toLowerCase()}</span>
           )}
           <span className="text-xs text-zinc-600">
-            {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
+            {safeDate(file.created_at) ? formatDistanceToNow(safeDate(file.created_at)!, { addSuffix: true }) : '—'}
           </span>
         </div>
       </div>

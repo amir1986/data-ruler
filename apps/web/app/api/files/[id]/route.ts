@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 import fs from 'fs';
 import path from 'path';
 
@@ -28,11 +29,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     return successResponse({
       ...file,
-      tags: JSON.parse((file.tags as string) || '[]'),
-      quality_profile: file.quality_profile ? JSON.parse(file.quality_profile as string) : null,
-      schema_snapshot: file.schema_snapshot ? JSON.parse(file.schema_snapshot as string) : null,
-      processing_log: file.processing_log ? JSON.parse(file.processing_log as string) : null,
-      media_metadata: file.media_metadata ? JSON.parse(file.media_metadata as string) : null,
+      tags: safeJsonParse(file.tags as string, []),
+      quality_profile: safeJsonParse(file.quality_profile as string | undefined, null),
+      schema_snapshot: safeJsonParse(file.schema_snapshot as string | undefined, null),
+      processing_log: safeJsonParse(file.processing_log as string | undefined, null),
+      media_metadata: safeJsonParse(file.media_metadata as string | undefined, null),
     });
   } catch (error) {
     console.error('Get file error:', error);
@@ -96,7 +97,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     return successResponse({
       ...updated,
-      tags: JSON.parse((updated.tags as string) || '[]'),
+      tags: safeJsonParse(updated.tags as string, []),
     });
   } catch (error) {
     console.error('Update file error:', error);

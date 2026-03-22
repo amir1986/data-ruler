@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb, getUserDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return successResponse({
         type: 'document',
         summary: file.ai_summary || null,
-        schema: file.schema_snapshot ? JSON.parse(file.schema_snapshot as string) : null,
+        schema: safeJsonParse(file.schema_snapshot as string | undefined, null),
         processingStatus: file.processing_status,
       });
     }
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     if (category === 'image' || category === 'video' || category === 'audio') {
       return successResponse({
         type: category,
-        metadata: file.media_metadata ? JSON.parse(file.media_metadata as string) : null,
+        metadata: safeJsonParse(file.media_metadata as string | undefined, null),
         thumbnailPath: file.thumbnail_path || null,
         transcriptionPath: file.transcription_path || null,
         processingStatus: file.processing_status,

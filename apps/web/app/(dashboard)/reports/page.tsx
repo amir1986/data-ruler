@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useLanguageStore } from '@/stores/language-store';
 import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/utils';
 import ReportViewer from '@/components/reports/report-viewer';
 
 function getStatusStyle(status: string) {
@@ -342,7 +343,7 @@ export default function ReportsPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {format(new Date(report.updated_at), 'MMM d, yyyy')}
+                        {safeFormatDate(report.updated_at, 'MMM d, yyyy')}
                       </span>
                     </div>
 
@@ -536,7 +537,7 @@ export default function ReportsPage() {
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               {activeReport &&
-                `${getTemplateInfo(activeReport.template).title} - ${t.reports.generated} ${format(new Date(activeReport.updated_at), 'MMM d, yyyy h:mm a')}`}
+                `${getTemplateInfo(activeReport.template).title} - ${t.reports.generated} ${safeFormatDate(activeReport.updated_at, 'MMM d, yyyy h:mm a')}`}
             </DialogDescription>
           </DialogHeader>
           {activeReport && activeReport.content && (

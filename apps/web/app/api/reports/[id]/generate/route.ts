@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -131,8 +132,8 @@ function generateExecutiveSummary(files: FileRow[], metrics: ReturnType<typeof c
 function generateDataDeepDive(files: FileRow[], metrics: ReturnType<typeof computeMetrics>) {
   const tabularFiles = files.filter(f => f.row_count !== null && f.row_count > 0);
   const sizeDistribution = files.map(f => ({ name: f.original_name, size: f.size_bytes })).sort((a, b) => b.size - a.size);
-  const largestFile = sizeDistribution[0];
-  const smallestFile = sizeDistribution[sizeDistribution.length - 1];
+  const largestFile = sizeDistribution.length > 0 ? sizeDistribution[0] : null;
+  const smallestFile = sizeDistribution.length > 0 ? sizeDistribution[sizeDistribution.length - 1] : null;
 
   return {
     summary: `Deep-dive analysis of ${metrics.total_files} dataset(s) totaling ${metrics.total_size_formatted}. This report provides comprehensive schema analysis, distribution profiling, and anomaly detection across ${metrics.categories.length} data categories and ${metrics.file_types.length} file formats.`,
@@ -358,7 +359,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     ).run(id);
 
     const template = (report.template as string) || 'executive_summary';
-    const fileIds = JSON.parse((report.file_ids as string) || '[]') as string[];
+    const fileIds = safeJsonParse(report.file_ids as string, []) as string[];
 
     let files: FileRow[];
     if (fileIds.length > 0) {
@@ -417,9 +418,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return successResponse({
       report: {
         ...updated,
-        file_ids: JSON.parse((updated.file_ids as string) || '[]'),
-        content: JSON.parse((updated.content as string) || '{}'),
-        config: JSON.parse((updated.config as string) || '{}'),
+        file_ids: safeJsonParse(updated.file_ids as string, []),
+        content: safeJsonParse(updated.content as string, {}),
+        config: safeJsonParse(updated.config as string, {}),
       },
     });
   } catch (error) {

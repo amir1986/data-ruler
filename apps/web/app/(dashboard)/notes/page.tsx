@@ -24,6 +24,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language-store';
 
 export default function NotesPage() {
@@ -116,7 +117,7 @@ export default function NotesPage() {
                       {note.title || t.notes.untitledNote}
                     </p>
                     <span className="text-[10px] text-muted-foreground shrink-0">
-                      {format(new Date(note.updated_at), "h'h' 'ago'")}
+                      {safeFormatDate(note.updated_at, "h'h' 'ago'")}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -158,7 +159,7 @@ export default function NotesPage() {
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   <span className="text-[10px] font-semibold uppercase tracking-wider">
-                    {t.notes.autoSaved} {format(new Date(activeNote.updated_at), 'HH:mm')}
+                    {t.notes.autoSaved} {safeFormatDate(activeNote.updated_at, 'HH:mm')}
                   </span>
                 </div>
 

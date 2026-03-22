@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const parsed = reports.map((r) => ({
       ...r,
-      file_ids: JSON.parse((r.file_ids as string) || '[]'),
+      file_ids: safeJsonParse(r.file_ids as string, []),
     }));
 
     return successResponse({ reports: parsed });
@@ -59,9 +60,9 @@ export async function POST(req: NextRequest) {
     return successResponse({
       report: {
         ...report,
-        file_ids: JSON.parse((report.file_ids as string) || '[]'),
-        content: JSON.parse((report.content as string) || '{}'),
-        config: JSON.parse((report.config as string) || '{}'),
+        file_ids: safeJsonParse(report.file_ids as string, []),
+        content: safeJsonParse(report.content as string, {}),
+        config: safeJsonParse(report.config as string, {}),
       },
     }, 201);
   } catch (error) {

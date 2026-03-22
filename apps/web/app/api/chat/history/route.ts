@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     return successResponse({
       messages: messages.map((m) => ({
         ...m,
-        metadata: m.metadata ? JSON.parse(m.metadata as string) : null,
+        metadata: safeJsonParse(m.metadata as string | undefined, null),
       })),
       pagination: {
         page,

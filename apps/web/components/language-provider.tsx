@@ -4,12 +4,11 @@ import { useEffect } from 'react';
 import { useLanguageStore } from '@/stores/language-store';
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const { locale, isRtl } = useLanguageStore();
+  const hydrate = useLanguageStore((s) => s.hydrate);
 
   useEffect(() => {
-    document.documentElement.lang = locale;
-    document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
-  }, [locale, isRtl]);
+    hydrate();
+  }, [hydrate]);
 
   return <>{children}</>;
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       fileName: file.original_name,
       status: file.processing_status,
       qualityScore: file.quality_score,
-      profile: file.quality_profile ? JSON.parse(file.quality_profile as string) : null,
+      profile: safeJsonParse(file.quality_profile as string | undefined, null),
     });
   } catch (error) {
     console.error('File profile error:', error);

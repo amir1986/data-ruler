@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
+import { safeJsonParse } from '@/lib/utils';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       email: user.email,
       displayName: user.display_name,
       createdAt: user.created_at,
-      settings: JSON.parse(user.settings || '{}'),
+      settings: safeJsonParse(user.settings, {}),
     });
   } catch (error) {
     console.error('Get current user error:', error);

@@ -1,6 +1,7 @@
 'use client';
 
 import { type Report } from '@/stores/reports-store';
+import { safeDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
   FileText,
@@ -229,7 +230,8 @@ function DataDeepDiveView({ content, theme }: { content: ReportContent; theme: t
           </div>
           <div className="space-y-2">
             {content.size_distribution.map((item, i) => {
-              const maxSize = Math.max(...content.size_distribution!.map(s => s.size));
+              const sizes = content.size_distribution!.map(s => s.size);
+              const maxSize = sizes.length > 0 ? Math.max(...sizes) : 0;
               const pct = maxSize > 0 ? Math.round((item.size / maxSize) * 100) : 0;
               return (
                 <div key={i} className="flex items-center gap-3">
@@ -498,7 +500,7 @@ export default function ReportViewer({ report }: { report: Report }) {
           {theme.label}
         </Badge>
         <span className="text-xs text-muted-foreground">
-          Generated {new Date(content.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          Generated {safeDate(content.generated_at)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? '—'}
         </span>
       </div>
 

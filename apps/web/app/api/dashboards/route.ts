@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
 import { getDb } from '@/lib/db';
+import { safeJsonParse } from '@/lib/utils';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
@@ -48,8 +49,8 @@ export async function POST(req: NextRequest) {
 
     return successResponse({
       ...dashboard,
-      layout: JSON.parse((dashboard.layout as string) || '[]'),
-      widgets: JSON.parse((dashboard.widgets as string) || '[]'),
+      layout: safeJsonParse(dashboard.layout as string, []),
+      widgets: safeJsonParse(dashboard.widgets as string, []),
     }, 201);
   } catch (error) {
     console.error('Create dashboard error:', error);
