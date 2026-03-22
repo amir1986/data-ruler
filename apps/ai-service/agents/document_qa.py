@@ -95,7 +95,6 @@ class DocumentQAAgent(AgentBase):
                 messages=messages,
                 system=system,
                 temperature=0.5,
-                max_tokens=3000,
                 model_tier="chat",
             )
             return {
