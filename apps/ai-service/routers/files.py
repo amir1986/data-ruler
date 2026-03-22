@@ -9,6 +9,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from models.schemas import AgentMessage, AgentMessageType
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -82,13 +83,17 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
         if result.get("columns") and result.get("rows"):
             from agents.schema_inference import SchemaInferenceAgent
             schema_agent = SchemaInferenceAgent()
-            schema_result = await schema_agent.process({
-                "payload": {
+            schema_msg = AgentMessage(
+                message_type=AgentMessageType.REQUEST,
+                source_agent="file_processor",
+                target_agent="schema_inference",
+                payload={
                     "columns": result["columns"],
                     "rows": result["rows"][:1000],
-                }
-            })
-            schema_data = schema_result.get("payload", {})
+                },
+            )
+            schema_result = await schema_agent.process(schema_msg)
+            schema_data = schema_result.payload
 
             conn.execute(
                 """UPDATE files SET

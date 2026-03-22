@@ -668,7 +668,7 @@ export default function FilesPage() {
                 </div>
               )}
 
-              {detailFile.tags.length > 0 && (
+              {detailFile.tags?.length > 0 && (
                 <div>
                   <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">{t.files.tags}</p>
                   <div className="flex flex-wrap gap-1.5">
