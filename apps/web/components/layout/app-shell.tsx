@@ -159,7 +159,7 @@ export function AppShell({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-muted-foreground/50 hidden lg:inline" title="Build version">
+            <span className="text-[11px] font-mono text-muted-foreground/70 select-all" title="Build version">
               {process.env.NEXT_PUBLIC_BUILD_VERSION || 'dev'}
             </span>
             <button className="p-1.5 rounded-md text-muted-foreground hover:text-white transition-colors">
