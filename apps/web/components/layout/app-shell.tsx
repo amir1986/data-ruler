@@ -4,6 +4,7 @@ import * as React from "react"
 import { MessageSquare, Search, Bell, Zap } from "lucide-react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { useChatStore } from "@/stores/chat-store"
+import { useFileStore } from "@/stores/file-store"
 import { ChatSidebar, type ChatMessage } from "@/components/layout/chat-sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,7 +52,9 @@ export function AppShell({
   const [commandOpen, setCommandOpen] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<'overview' | 'activity'>('overview')
   const { t } = useLanguageStore()
-  const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage, isOpen: chatOpen, setOpen: setChatOpen } = useChatStore()
+  const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage, isOpen: chatOpen, setOpen: setChatOpen, contextFileId } = useChatStore()
+  const { files } = useFileStore()
+  const contextFile = files.find((f) => f.id === contextFileId)
   const chatMessages = chatStoreMessages.map(m => ({
     id: m.id,
     role: m.role as "user" | "assistant",
@@ -195,6 +198,7 @@ export function AppShell({
         messages={chatMessages}
         onSendMessage={handleSendMessage}
         isLoading={chatLoading}
+        context={contextFile ? contextFile.original_name : undefined}
       />
 
       {/* Command palette */}

@@ -90,11 +90,32 @@ export function ChatSidebar({
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground">
-              {t.chat.askAboutData}
+              {context && context !== "Global"
+                ? `Ask anything about "${context}"`
+                : t.chat.askAboutData}
             </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
               {t.chat.helpWith}
             </p>
+            {context && context !== "Global" && (
+              <div className="flex flex-col gap-1.5 mt-4 w-full px-2">
+                {[
+                  `Summarize ${context}`,
+                  `What are the key insights in ${context}?`,
+                  `Any anomalies in ${context}?`,
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    className="text-xs text-start px-3 py-2 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => {
+                      onSendMessage?.(suggestion)
+                    }}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
