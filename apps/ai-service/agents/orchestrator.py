@@ -163,24 +163,23 @@ class OrchestratorAgent(AgentBase):
                 "LLM intent: %s (confidence=%.2f)",
                 plan.get("intent"), plan.get("confidence", 0),
             )
-            # Validate: chat intents must use LLM-capable agents, not file parsers
-            chat_intents = {"general_chat", "ask_document"}
-            non_chat_agents = {
-                "file_detection", "tabular_processor", "document_processor",
-                "database_importer", "media_processor", "archive_processor",
-                "structured_data", "specialized_format", "storage_router",
-                "validation_security", "export_agent", "scheduler",
-            }
-            if plan.get("intent") in chat_intents:
-                corrected = False
+            # Validate: general_chat must use LLM-capable agents, not file parsers.
+            # ask_document allows document_processor (text extraction) + media_processor
+            # alongside document_qa since the LLM may plan a multi-step pipeline.
+            intent = plan.get("intent")
+            if intent == "general_chat":
                 for step in plan.get("plan", []):
-                    if step.get("agent") in non_chat_agents:
+                    agent = step.get("agent", "")
+                    if agent not in {
+                        "document_qa", "sql_agent", "analytics",
+                        "visualization", "cross_modal", "relationship_mining",
+                        "schema_inference",
+                    }:
                         self.logger.warning(
-                            "Correcting agent %s -> document_qa for %s intent",
-                            step["agent"], plan["intent"],
+                            "Correcting agent %s -> document_qa for general_chat",
+                            agent,
                         )
                         step["agent"] = "document_qa"
-                        corrected = True
             return plan
         except (json.JSONDecodeError, Exception) as exc:
             self.logger.warning("LLM intent parsing failed: %s — using fallback", exc)
