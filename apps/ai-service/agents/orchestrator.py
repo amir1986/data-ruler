@@ -164,23 +164,33 @@ class OrchestratorAgent(AgentBase):
                 "LLM intent: %s (confidence=%.2f)",
                 plan.get("intent"), plan.get("confidence", 0),
             )
-            # Validate: general_chat must use LLM-capable agents, not file parsers.
-            # ask_document allows document_processor (text extraction) + media_processor
-            # alongside document_qa since the LLM may plan a multi-step pipeline.
+            # Validate: for chat intents, only dispatch LLM-capable agents.
+            # document_processor/media_processor are for the file upload pipeline,
+            # not for chat. document_qa already reads files directly from disk.
+            llm_capable_agents = {
+                "document_qa", "sql_agent", "analytics", "visualization",
+                "cross_modal", "relationship_mining", "schema_inference",
+            }
+            chat_intents = {"general_chat", "ask_document"}
             intent = plan.get("intent")
-            if intent == "general_chat":
+            if intent in chat_intents:
+                seen = set()
+                cleaned_plan = []
                 for step in plan.get("plan", []):
                     agent = step.get("agent", "")
-                    if agent not in {
-                        "document_qa", "sql_agent", "analytics",
-                        "visualization", "cross_modal", "relationship_mining",
-                        "schema_inference",
-                    }:
+                    if agent not in llm_capable_agents:
                         self.logger.warning(
-                            "Correcting agent %s -> document_qa for general_chat",
-                            agent,
+                            "Removing non-LLM agent %s from %s plan",
+                            agent, intent,
                         )
-                        step["agent"] = "document_qa"
+                        continue
+                    if agent not in seen:
+                        seen.add(agent)
+                        cleaned_plan.append(step)
+                # Ensure at least document_qa is present
+                if not cleaned_plan:
+                    cleaned_plan = [{"agent": "document_qa", "parallel_group": 0}]
+                plan["plan"] = cleaned_plan
             return plan
         except (json.JSONDecodeError, Exception) as exc:
             self.logger.warning("LLM intent parsing failed: %s — using fallback", exc)
