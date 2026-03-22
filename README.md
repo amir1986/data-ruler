@@ -30,7 +30,7 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 | AI / LLM | Groq (free), OpenRouter (free), HuggingFace Inference API (free), Ollama Cloud |
 | Embeddings | HuggingFace sentence-transformers |
 | Auth | JWT + bcrypt, cookie-based sessions |
-| Deployment | Docker Compose |
+| Deployment | Docker Compose, Render (free tier) |
 
 ## Quick Start
 
@@ -46,11 +46,35 @@ Open http://localhost:3000 and create an account.
 
 Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), [HuggingFace](https://huggingface.co/settings/tokens), or use an [Ollama](https://ollama.com/) cloud API key.
 
-## Deploy to a Domain
+## Deploy to Production
+
+### Option A: Free Cloud Hosting (Render — $0, no server needed)
+
+Deploy both services for free on [Render](https://render.com) with automatic HTTPS and a free subdomain.
+
+1. **Sign up** at [render.com](https://render.com) with your GitHub account
+2. Click **New → Blueprint** and select the `data-ruler` repository
+3. Render auto-detects `render.yaml` and sets up both services
+4. Set the environment variables when prompted:
+
+   | Variable | Value |
+   |----------|-------|
+   | `NEXTAUTH_URL` | `https://data-ruler-web.onrender.com` (your assigned URL) |
+   | `AI_SERVICE_URL` | `https://data-ruler-ai.onrender.com` (your AI service URL) |
+   | `GROQ_API_KEY` | Get a free key at [console.groq.com/keys](https://console.groq.com/keys) |
+
+5. Click **Apply** — both services build and deploy automatically
+
+Your app is live at `https://data-ruler-web.onrender.com` with auto-deploy on every push.
+
+> **Free tier notes:** Services sleep after 15 min of inactivity (first request takes ~30s to wake). 750 free hours/month.
+
+### Option B: Self-Hosted (your own server + domain)
 
 1. In `.env`, set `NEXTAUTH_URL=https://yourdomain.com` and generate a strong `NEXTAUTH_SECRET`
 2. Point your domain's DNS A record to your server IP
 3. Put a reverse proxy (e.g. [Caddy](https://caddyserver.com/) or Nginx) in front of port 3000 to handle HTTPS
+4. Run `docker compose up --build -d`
 
 ## Environment Variables
 
@@ -513,6 +537,7 @@ data-ruler/
 ├── data/                           # Runtime data (gitignored)
 ├── scripts/                        # Utility scripts (screenshot generation)
 ├── docker-compose.yml              # Cloud-only (Groq/OpenRouter/HF/Ollama Cloud)
+├── render.yaml                     # Render.com deployment blueprint (free tier)
 ├── start.sh                        # One-command startup
 └── .env.example                    # Configuration template
 ```
