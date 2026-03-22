@@ -52,13 +52,21 @@ class DocumentQAAgent(AgentBase):
 
         full_context = "\n\n".join(context_parts) if context_parts else "No specific data context available."
 
-        # Build conversation
+        # Build conversation — keep recent history short to avoid exceeding context limits
         messages = []
-        for h in conversation_history[-10:]:
-            messages.append({
+        total_chars = 0
+        for h in reversed(conversation_history[-10:]):
+            content = h.get("content", "") or ""
+            # Truncate individual messages and cap total history size
+            if len(content) > 1500:
+                content = content[:1500] + "..."
+            if total_chars + len(content) > 6000:
+                break
+            messages.insert(0, {
                 "role": h.get("role", "user"),
-                "content": h.get("content", ""),
+                "content": content,
             })
+            total_chars += len(content)
         messages.append({
             "role": "user",
             "content": f"Context:\n{full_context}\n\nQuestion: {question}",
