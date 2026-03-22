@@ -38,10 +38,10 @@ services:
       - OPENROUTER_CHAT_MODEL=${OPENROUTER_CHAT_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
       - HF_CHAT_MODEL=${HF_CHAT_MODEL:-meta-llama/Llama-3.1-8B-Instruct}
       - HF_EMBED_MODEL=${HF_EMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
-      - OLLAMA_CLOUD_BASE_URL=${OLLAMA_CLOUD_BASE_URL:-https://api.ollama.com/v1}
-      - OLLAMA_CLOUD_CHAT_MODEL=${OLLAMA_CLOUD_CHAT_MODEL:-llama3.1}
-      - OLLAMA_CLOUD_CODE_MODEL=${OLLAMA_CLOUD_CODE_MODEL:-llama3.1}
-      - OLLAMA_CLOUD_FAST_MODEL=${OLLAMA_CLOUD_FAST_MODEL:-llama3.1}
+      - OLLAMA_CLOUD_BASE_URL=${OLLAMA_CLOUD_BASE_URL:-https://ollama.com/v1}
+      - OLLAMA_CLOUD_CHAT_MODEL=${OLLAMA_CLOUD_CHAT_MODEL:-gemma3:12b}
+      - OLLAMA_CLOUD_CODE_MODEL=${OLLAMA_CLOUD_CODE_MODEL:-gemma3:12b}
+      - OLLAMA_CLOUD_FAST_MODEL=${OLLAMA_CLOUD_FAST_MODEL:-gemma3:12b}
       # Storage
       - DATABASE_PATH=/data/databases
       - UPLOAD_PATH=/data/uploads

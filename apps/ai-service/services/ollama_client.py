@@ -33,7 +33,7 @@ OLLAMA_CLOUD_API_KEY = os.getenv("OLLAMA_CLOUD_API_KEY", "")
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 HF_BASE_URL = "https://api-inference.huggingface.co/models"
-OLLAMA_CLOUD_BASE_URL = os.getenv("OLLAMA_CLOUD_BASE_URL", "https://api.ollama.com/v1")
+OLLAMA_CLOUD_BASE_URL = os.getenv("OLLAMA_CLOUD_BASE_URL", "https://ollama.com/v1")
 
 # Default models per provider (free-tier compatible)
 GROQ_MODELS = {
@@ -56,9 +56,9 @@ HF_MODELS = {
 }
 
 OLLAMA_CLOUD_MODELS = {
-    "chat": os.getenv("OLLAMA_CLOUD_CHAT_MODEL", "llama3.1"),
-    "code": os.getenv("OLLAMA_CLOUD_CODE_MODEL", "llama3.1"),
-    "fast": os.getenv("OLLAMA_CLOUD_FAST_MODEL", "llama3.1"),
+    "chat": os.getenv("OLLAMA_CLOUD_CHAT_MODEL", "gemma3:12b"),
+    "code": os.getenv("OLLAMA_CLOUD_CODE_MODEL", "gemma3:12b"),
+    "fast": os.getenv("OLLAMA_CLOUD_FAST_MODEL", "gemma3:12b"),
 }
 
 # Legacy env-var compat
