@@ -65,8 +65,8 @@ OLLAMA_CLOUD_API_KEY=...               # Ollama Cloud (remote Ollama instance)
 GROQ_CHAT_MODEL=llama-3.3-70b-versatile
 GROQ_FAST_MODEL=llama-3.1-8b-instant
 OPENROUTER_CHAT_MODEL=meta-llama/llama-3.3-70b-instruct:free
-OLLAMA_CLOUD_BASE_URL=https://api.ollama.com/v1
-OLLAMA_CLOUD_CHAT_MODEL=llama3.1
+OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
+# Model is locked to gemini-3-flash-preview (not configurable)
 
 # Auth
 NEXTAUTH_SECRET=your-secret-key-here
