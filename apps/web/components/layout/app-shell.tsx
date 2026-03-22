@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, Search, Bell, Zap } from "lucide-react"
+import { MessageSquare, Search, Bell, Zap, Menu, X } from "lucide-react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { useChatStore } from "@/stores/chat-store"
 import { useFileStore } from "@/stores/file-store"
@@ -49,6 +49,7 @@ export function AppShell({
   onLogout,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<'overview' | 'activity'>('overview')
   const { t } = useLanguageStore()
@@ -98,30 +99,70 @@ export function AppShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      {/* Left sidebar */}
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
-        activePath={activePath}
-        user={user}
-        onNavigate={(href) => {
-          onNavigate?.(href)
-          setCommandOpen(false)
-        }}
-        onLogout={onLogout}
-      />
+      {/* Mobile sidebar overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            className="absolute inset-y-0 start-0 w-64"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Sidebar
+              collapsed={false}
+              activePath={activePath}
+              user={user}
+              onNavigate={(href) => {
+                onNavigate?.(href)
+                setMobileMenuOpen(false)
+              }}
+              onLogout={onLogout}
+            />
+          </div>
+          <button
+            className="absolute top-4 end-4 p-2 rounded-full bg-secondary text-white"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
+      {/* Desktop sidebar — hidden on mobile */}
+      <div className="hidden lg:block">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+          activePath={activePath}
+          user={user}
+          onNavigate={(href) => {
+            onNavigate?.(href)
+            setCommandOpen(false)
+          }}
+          onLogout={onLogout}
+        />
+      </div>
 
       {/* Main content area with top bar */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top navigation bar */}
-        <header className="flex h-12 items-center justify-between border-b border-border px-4">
-          {/* Left: App name + tabs */}
-          <div className="flex items-center gap-6">
-            <span className="text-sm font-bold tracking-tight text-white">
+        <header className="flex h-12 items-center justify-between border-b border-border px-2 sm:px-4">
+          {/* Left: Hamburger + App name + tabs */}
+          <div className="flex items-center gap-2 sm:gap-6">
+            {/* Mobile hamburger */}
+            <button
+              className="p-2 rounded-md text-muted-foreground hover:text-white lg:hidden"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <span className="text-sm font-bold tracking-tight text-white hidden sm:inline">
               {t.appName}
             </span>
 
-            {/* Search */}
+            {/* Search — hidden on mobile */}
             <div className="relative hidden md:block">
               <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -132,8 +173,8 @@ export function AppShell({
               />
             </div>
 
-            {/* Tabs */}
-            <nav className="flex items-center gap-4">
+            {/* Tabs — hidden on small mobile */}
+            <nav className="hidden sm:flex items-center gap-4">
               <button
                 onClick={() => setActiveTab('overview')}
                 className={`text-xs font-semibold uppercase tracking-wider pb-0.5 transition-colors ${
@@ -158,14 +199,21 @@ export function AppShell({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-muted-foreground/70 select-all" title="Build version">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground/70 select-all hidden md:inline" title="Build version">
               {process.env.NEXT_PUBLIC_BUILD_VERSION || 'dev'}
             </span>
-            <button className="p-1.5 rounded-md text-muted-foreground hover:text-white transition-colors">
+            {/* Mobile search button */}
+            <button
+              className="p-2 rounded-md text-muted-foreground hover:text-white md:hidden"
+              onClick={() => setCommandOpen(true)}
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button className="p-2 rounded-md text-muted-foreground hover:text-white transition-colors">
               <Bell className="h-4 w-4" />
             </button>
-            <button className="p-1.5 rounded-md text-muted-foreground hover:text-white transition-colors">
+            <button className="p-2 rounded-md text-muted-foreground hover:text-white transition-colors hidden sm:block">
               <Zap className="h-4 w-4" />
             </button>
             <Avatar className="h-7 w-7 ms-1">

@@ -64,7 +64,7 @@ export function ChatSidebar({
   if (!open) return null
 
   return (
-    <aside className="flex h-full w-80 flex-col border-s bg-background">
+    <aside className="flex h-full w-full sm:w-80 flex-col border-s bg-background fixed inset-y-0 end-0 z-40 sm:static sm:z-auto">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
