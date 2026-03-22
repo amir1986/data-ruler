@@ -48,11 +48,10 @@ export function AppShell({
   onLogout,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
-  const [chatOpen, setChatOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<'overview' | 'activity'>('overview')
   const { t } = useLanguageStore()
-  const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage } = useChatStore()
+  const { messages: chatStoreMessages, streaming, sendMessage: storeSendMessage, isOpen: chatOpen, setOpen: setChatOpen } = useChatStore()
   const chatMessages = chatStoreMessages.map(m => ({
     id: m.id,
     role: m.role as "user" | "assistant",
