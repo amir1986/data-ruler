@@ -1,0 +1,56 @@
+services:
+  # --- Next.js Web App ---
+  - type: web
+    name: data-ruler-web
+    runtime: node
+    plan: free
+    buildCommand: cd apps/web && npm install && npm run build
+    startCommand: cd apps/web && npm start
+    envVars:
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: DATABASE_PATH
+        value: /opt/render/project/data/databases
+      - key: UPLOAD_PATH
+        value: /opt/render/project/data/uploads
+      - key: NODE_ENV
+        value: production
+
+  # --- Python AI Service ---
+  - type: web
+    name: data-ruler-ai
+    runtime: python
+    plan: free
+    buildCommand: cd apps/ai-service && pip install -r requirements.txt
+    startCommand: cd apps/ai-service && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: HF_API_TOKEN
+        sync: false
+      - key: OLLAMA_CLOUD_API_KEY
+        sync: false
+      - key: GROQ_CHAT_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_CODE_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_FAST_MODEL
+        value: llama-3.1-8b-instant
+      - key: DATABASE_PATH
+        value: /opt/render/project/data/databases
+      - key: UPLOAD_PATH
+        value: /opt/render/project/data/uploads
+      - key: VECTOR_PATH
+        value: /opt/render/project/data/vectors
+      - key: THUMBNAIL_PATH
+        value: /opt/render/project/data/thumbnails
+      - key: EXPORT_PATH
+        value: /opt/render/project/data/exports
+      - key: LLM_TIMEOUT
+        value: "120"
