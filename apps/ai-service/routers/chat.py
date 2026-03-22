@@ -27,6 +27,7 @@ class ChatRequest(BaseModel):
     context_file_id: str | None = None
     context_dashboard_id: str | None = None
     context_id: str | None = None
+    locale: str = "en"
     conversation_history: list[dict] = []
 
 
@@ -111,6 +112,7 @@ async def chat(req: ChatRequest, request: Request):
                 "file_id": req.context_file_id,
                 "schema_context": schema_context,
                 "context_id": req.context_id,
+                "locale": req.locale,
                 "conversation_history": req.conversation_history,
             },
         )
@@ -137,11 +139,15 @@ async def chat(req: ChatRequest, request: Request):
             messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
         messages.append({"role": "user", "content": req.message})
 
+        lang_instruction = ""
+        if req.locale == "he":
+            lang_instruction = "\nIMPORTANT: Always respond in Hebrew (עברית). All text must be in Hebrew.\n"
+
         system_prompt = (
             f"You are an AI data assistant for DataRuler, a data analytics platform.\n"
             f"You help users understand their data, suggest analyses, and answer questions.\n\n"
             f"User's available data:\n{schema_context}\n\n"
-            f"Be helpful, concise, and data-focused."
+            f"Be helpful, concise, and data-focused.{lang_instruction}"
         )
 
         async for chunk in chat_completion_stream(messages, system=system_prompt):

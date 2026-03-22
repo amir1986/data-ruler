@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { message, contextFileId, contextDashboardId, contextId } = body;
+    const { message, contextFileId, contextDashboardId, contextId, locale } = body;
 
     if (!message || typeof message !== 'string') {
       return errorResponse('Message is required', 400);
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
         context_file_id: contextFileId || null,
         context_dashboard_id: contextDashboardId || null,
         context_id: contextId || null,
+        locale: locale || 'en',
         conversation_history: history.reverse(),
       }),
     });

@@ -83,10 +83,15 @@ class DocumentQAAgent(AgentBase):
             "content": f"Context:\n{full_context}\n\nQuestion: {question}",
         })
 
+        locale = payload.get("locale", "en")
+        system = QA_SYSTEM
+        if locale == "he":
+            system += "\n\nIMPORTANT: Always respond entirely in Hebrew (עברית). All text, headings, and explanations must be in Hebrew."
+
         try:
             answer = await chat_completion(
                 messages=messages,
-                system=QA_SYSTEM,
+                system=system,
                 temperature=0.5,
                 max_tokens=1500,
                 model_tier="chat",

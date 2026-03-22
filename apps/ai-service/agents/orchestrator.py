@@ -108,8 +108,9 @@ class OrchestratorAgent(AgentBase):
         results = await self._execute_plan(plan, message, ctx)
 
         # Step 3: Synthesize final response
+        locale = payload.get("locale", "en")
         synthesis = await self._synthesize_results(
-            user_message, plan, results,
+            user_message, plan, results, locale,
         )
 
         return {
@@ -390,10 +391,15 @@ class OrchestratorAgent(AgentBase):
         user_message: str,
         plan: dict[str, Any],
         results: list[dict[str, Any]],
+        locale: str = "en",
     ) -> str:
         """Use LLM to synthesize agent results into a coherent response."""
         # Truncate results for the LLM context window
         results_summary = json.dumps(results, default=str)[:4000]
+
+        lang_instruction = ""
+        if locale == "he":
+            lang_instruction = "\nIMPORTANT: Respond entirely in Hebrew (עברית). All text must be in Hebrew."
 
         try:
             synthesis = await chat_completion(
@@ -403,7 +409,7 @@ class OrchestratorAgent(AgentBase):
                     f"Agent results:\n{results_summary}\n\n"
                     "Synthesize these results into a clear, helpful response for the user. "
                     "If there are data tables, format them nicely. If there are errors, "
-                    "explain what went wrong and suggest alternatives."
+                    f"explain what went wrong and suggest alternatives.{lang_instruction}"
                 )}],
                 system=(
                     "You are a helpful data assistant. Synthesize agent results into "

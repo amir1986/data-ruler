@@ -100,6 +100,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           contextFileId,
           contextDashboardId,
           contextId,
+          locale: document.documentElement.lang || 'en',
         }),
       });
 
