@@ -137,23 +137,27 @@ class DocumentQAAgent(AgentBase):
         conn = sqlite3.connect(catalog_db)
         conn.row_factory = sqlite3.Row
         try:
-            # Find document-type files for this user
             if file_id:
                 rows = conn.execute(
-                    """SELECT id, original_name, stored_path, file_category, ai_summary
+                    """SELECT id, original_name, stored_path, file_type,
+                              file_category, mime_type, size_bytes, row_count,
+                              column_count, schema_snapshot, quality_score,
+                              quality_profile, ai_summary, tags
                        FROM files WHERE user_id = ? AND id = ?""",
                     (user_id, file_id),
                 ).fetchall()
             else:
-                # Find files whose name appears in the question
                 rows = conn.execute(
-                    """SELECT id, original_name, stored_path, file_category, ai_summary
+                    """SELECT id, original_name, stored_path, file_type,
+                              file_category, mime_type, size_bytes, row_count,
+                              column_count, schema_snapshot, quality_score,
+                              quality_profile, ai_summary, tags
                        FROM files WHERE user_id = ?
                        ORDER BY created_at DESC LIMIT 20""",
                     (user_id,),
                 ).fetchall()
 
-            # Try to match file by name mentioned in the question
+            # Match files mentioned in the question
             target_rows = []
             q_lower = question.lower()
             for row in rows:
@@ -161,46 +165,85 @@ class DocumentQAAgent(AgentBase):
                 if name and name in q_lower:
                     target_rows.append(row)
             if not target_rows:
-                target_rows = rows[:5]  # Fall back to most recent files
+                target_rows = rows[:5]
 
             text_parts = []
             for row in target_rows:
                 path = row["stored_path"]
                 name = row["original_name"] or "unknown"
 
-                # Use ai_summary if available
-                if row["ai_summary"]:
-                    text_parts.append(f"File: {name}\n{row['ai_summary']}")
-                    continue
+                # Always include file metadata — works for ANY file type
+                meta_lines = [f"File: {name}"]
+                if row["file_type"]:
+                    meta_lines.append(f"Type: {row['file_type']}")
+                if row["file_category"]:
+                    meta_lines.append(f"Category: {row['file_category']}")
+                if row["mime_type"]:
+                    meta_lines.append(f"MIME: {row['mime_type']}")
+                if row["size_bytes"]:
+                    size_mb = row["size_bytes"] / (1024 * 1024)
+                    meta_lines.append(f"Size: {size_mb:.1f} MB")
+                if row["row_count"]:
+                    meta_lines.append(f"Rows: {row['row_count']}")
+                if row["column_count"]:
+                    meta_lines.append(f"Columns: {row['column_count']}")
+                if row["quality_score"] is not None:
+                    meta_lines.append(f"Quality score: {row['quality_score']}")
+                if row["tags"]:
+                    meta_lines.append(f"Tags: {row['tags']}")
 
-                # Try reading the file directly
+                # Schema info
+                if row["schema_snapshot"]:
+                    try:
+                        schema = json.loads(row["schema_snapshot"])
+                        if isinstance(schema, list) and schema:
+                            cols = ", ".join(
+                                f"{c.get('name', '?')} ({c.get('inferred_type', 'text')})"
+                                for c in schema[:20]
+                            )
+                            meta_lines.append(f"Schema: {cols}")
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # Quality profile
+                if row["quality_profile"]:
+                    try:
+                        profile = json.loads(row["quality_profile"])
+                        if isinstance(profile, dict) and profile.get("issues"):
+                            meta_lines.append(f"Quality issues: {', '.join(str(i) for i in profile['issues'][:5])}")
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # AI summary if available
+                if row["ai_summary"]:
+                    meta_lines.append(f"AI Summary: {row['ai_summary']}")
+
+                # Try extracting text content for supported formats
+                content = ""
                 if path and os.path.exists(path):
                     ext = os.path.splitext(path)[1].lower()
-                    if ext == ".pdf":
-                        try:
+                    try:
+                        if ext == ".pdf":
                             import fitz
                             doc = fitz.open(path)
                             pages_text = [p.get_text() for p in doc]
                             doc.close()
                             content = "\n\n".join(pages_text)[:4000]
-                            text_parts.append(f"File: {name}\n{content}")
-                        except Exception:
-                            pass
-                    elif ext in (".txt", ".md", ".html", ".csv", ".json", ".xml"):
-                        try:
+                        elif ext in (".txt", ".md", ".html", ".csv", ".json", ".xml",
+                                     ".yaml", ".yml", ".toml", ".ini", ".log", ".tsv"):
                             with open(path, "r", encoding="utf-8", errors="replace") as f:
                                 content = f.read(4000)
-                            text_parts.append(f"File: {name}\n{content}")
-                        except Exception:
-                            pass
-                    elif ext in (".docx",):
-                        try:
+                        elif ext == ".docx":
                             from docx import Document
                             doc = Document(path)
                             content = "\n".join(p.text for p in doc.paragraphs)[:4000]
-                            text_parts.append(f"File: {name}\n{content}")
-                        except Exception:
-                            pass
+                    except Exception as exc:
+                        meta_lines.append(f"Text extraction error: {exc}")
+
+                if content:
+                    meta_lines.append(f"Content:\n{content}")
+
+                text_parts.append("\n".join(meta_lines))
 
             return "\n\n---\n\n".join(text_parts)
         finally:
