@@ -68,6 +68,9 @@ class OrchestratorAgent(AgentBase):
     passing everything through message payloads.
     """
 
+    # Max agents running concurrently within a single parallel group
+    _MAX_PARALLEL_AGENTS = 5
+
     def __init__(
         self,
         registry: AgentRegistry | None = None,
@@ -77,6 +80,7 @@ class OrchestratorAgent(AgentBase):
             agent_name="orchestrator",
             description="Master orchestrator — LLM-powered intent parsing, execution planning, and agent coordination.",
         )
+        self._agent_semaphore = asyncio.Semaphore(self._MAX_PARALLEL_AGENTS)
         self.registry = registry
         self.context_store = context_store or ContextStore()
         self.system_prompt = SYSTEM_PROMPT
@@ -332,7 +336,19 @@ class OrchestratorAgent(AgentBase):
         payload: dict[str, Any],
         source_message: AgentMessage,
     ) -> dict[str, Any]:
-        """Dispatch to an agent via the registry (direct call)."""
+        """Dispatch to an agent via the registry (bounded by semaphore)."""
+        async with self._agent_semaphore:
+            return await self._dispatch_to_agent_inner(
+                agent_name, payload, source_message,
+            )
+
+    async def _dispatch_to_agent_inner(
+        self,
+        agent_name: str,
+        payload: dict[str, Any],
+        source_message: AgentMessage,
+    ) -> dict[str, Any]:
+        """Inner dispatch logic."""
         self.logger.info("Dispatching to agent: %s", agent_name)
 
         if not self.registry:

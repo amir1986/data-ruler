@@ -237,15 +237,21 @@ class MessageBus:
                 if not fut.done():
                     fut.set_result(message)
 
-            # Fan-out to subscribers
+            # Fan-out to subscribers with per-callback timeout
             subscribers = self._subscribers.get(message.target_agent, [])
             if not subscribers and message.target_agent:
                 self.dead_letters.add(message, "no_subscribers")
             else:
                 for callback in subscribers:
                     try:
-                        await callback(message)
+                        await asyncio.wait_for(callback(message), timeout=180.0)
                         self._delivered_count += 1
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            "Subscriber %s timed out on message %s (180s)",
+                            callback, message.message_id,
+                        )
+                        self.dead_letters.add(message, "subscriber_timeout")
                     except Exception:
                         logger.exception(
                             "Subscriber %s failed processing message %s",

@@ -12,6 +12,7 @@ is configured, with automatic fallback to the next provider on failure.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -124,8 +125,14 @@ def _detect_providers() -> list[str]:
 class CloudLLMClient:
     """Unified async client for free-tier cloud LLM providers."""
 
+    # Max concurrent LLM requests to prevent rate-limit storms / starvation
+    _MAX_CONCURRENT_LLM = 10
+    _MAX_CONCURRENT_EMBED = 5
+
     def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
         self.timeout = timeout
+        self._llm_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_LLM)
+        self._embed_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EMBED)
         self.providers = _detect_providers()
         if not self.providers:
             logger.warning(
@@ -229,26 +236,27 @@ class CloudLLMClient:
             all_messages = [{"role": "system", "content": system}] + all_messages
         all_messages = _ensure_alternating_roles(all_messages)
 
-        last_error: Exception | None = None
-        for provider in self.providers:
-            cfg = self._get_config(provider, model_tier)
-            chosen_model = model or cfg["model"]
-            try:
-                if provider in (Provider.GROQ, Provider.OPENROUTER, Provider.OLLAMA_CLOUD):
-                    return await self._chat_openai_compat(
-                        cfg, all_messages, chosen_model,
-                        temperature, max_tokens, json_mode,
-                    )
-                elif provider == Provider.HUGGINGFACE:
-                    return await self._chat_huggingface(
-                        cfg, all_messages, chosen_model,
-                        temperature, max_tokens,
-                    )
-            except Exception as exc:
-                last_error = exc
-                logger.warning("Provider %s failed: %s", provider, exc)
+        async with self._llm_semaphore:
+            last_error: Exception | None = None
+            for provider in self.providers:
+                cfg = self._get_config(provider, model_tier)
+                chosen_model = model or cfg["model"]
+                try:
+                    if provider in (Provider.GROQ, Provider.OPENROUTER, Provider.OLLAMA_CLOUD):
+                        return await self._chat_openai_compat(
+                            cfg, all_messages, chosen_model,
+                            temperature, max_tokens, json_mode,
+                        )
+                    elif provider == Provider.HUGGINGFACE:
+                        return await self._chat_huggingface(
+                            cfg, all_messages, chosen_model,
+                            temperature, max_tokens,
+                        )
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning("Provider %s failed: %s", provider, exc)
 
-        raise RuntimeError(f"All cloud providers failed. Last error: {last_error}")
+            raise RuntimeError(f"All cloud providers failed. Last error: {last_error}")
 
     async def _chat_openai_compat(
         self, cfg: dict, messages: list, model: str,
@@ -424,24 +432,25 @@ class CloudLLMClient:
     # -- Embeddings -------------------------------------------------------
 
     async def embed(self, text: str, model: str | None = None) -> list[float]:
-        last_error: Exception | None = None
+        async with self._embed_semaphore:
+            last_error: Exception | None = None
 
-        if HF_API_TOKEN:
-            try:
-                return await self._embed_huggingface(text, model)
-            except Exception as exc:
-                last_error = exc
+            if HF_API_TOKEN:
+                try:
+                    return await self._embed_huggingface(text, model)
+                except Exception as exc:
+                    last_error = exc
 
-        for provider in self.providers:
-            if provider == Provider.HUGGINGFACE:
-                continue
-            try:
-                cfg = self._get_config(provider)
-                return await self._embed_openai_compat(cfg, text, model)
-            except Exception as exc:
-                last_error = exc
+            for provider in self.providers:
+                if provider == Provider.HUGGINGFACE:
+                    continue
+                try:
+                    cfg = self._get_config(provider)
+                    return await self._embed_openai_compat(cfg, text, model)
+                except Exception as exc:
+                    last_error = exc
 
-        raise RuntimeError(f"All embedding providers failed: {last_error}")
+            raise RuntimeError(f"All embedding providers failed: {last_error}")
 
     async def _embed_huggingface(self, text: str, model: str | None = None) -> list[float]:
         embed_model = model or HF_MODELS["embed"]
@@ -478,7 +487,9 @@ class CloudLLMClient:
         return data.get("data", [{}])[0].get("embedding", [])
 
     async def embed_batch(self, texts: list[str], model: str | None = None) -> list[list[float]]:
-        return [await self.embed(t, model=model) for t in texts]
+        """Embed texts concurrently (bounded by _embed_semaphore)."""
+        tasks = [self.embed(t, model=model) for t in texts]
+        return list(await asyncio.gather(*tasks))
 
     async def list_models(self) -> list[dict[str, Any]]:
         all_models: list[dict[str, Any]] = []

@@ -1,5 +1,6 @@
 """Chat router - handles AI chat via agent orchestration pipeline."""
 
+import asyncio
 import json
 import logging
 import os
@@ -90,7 +91,9 @@ async def chat(req: ChatRequest, request: Request):
     For general chat, falls back to direct LLM streaming for low latency.
     """
     registry = request.app.state.agent_registry
-    schema_context = get_user_schema_context(req.user_id, req.context_file_id)
+    schema_context = await asyncio.to_thread(
+        get_user_schema_context, req.user_id, req.context_file_id,
+    )
 
     # Try routing through the orchestrator for structured intents
     orchestrator = registry.get("orchestrator")

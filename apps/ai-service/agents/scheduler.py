@@ -95,10 +95,16 @@ class SchedulerAgent(AgentBase):
         else:
             return self._list_tasks()
 
+    _MAX_SCHEDULED_TASKS = 50
+
     async def _schedule_task(self, payload: dict[str, Any]) -> dict[str, Any]:
         target_agent = payload.get("target_agent")
         if not target_agent:
             return {"error": "target_agent is required for scheduling"}
+
+        active = sum(1 for t in self._tasks.values() if t.status == "running")
+        if active >= self._MAX_SCHEDULED_TASKS:
+            return {"error": f"Max scheduled tasks ({self._MAX_SCHEDULED_TASKS}) reached"}
 
         interval = int(payload.get("interval_seconds", 3600))
         if interval < 60:

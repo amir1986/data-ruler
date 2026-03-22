@@ -126,14 +126,20 @@ class AgentContext:
 
 
 class ContextStore:
-    """Registry of per-user ``AgentContext`` instances."""
+    """Registry of per-user ``AgentContext`` instances with TTL eviction."""
+
+    _MAX_CONTEXTS = 500
+    _TTL_SECONDS = 3600  # 1 hour
 
     def __init__(self) -> None:
         self._contexts: dict[UUID, AgentContext] = {}
 
     def get_or_create(self, context_id: UUID | None = None) -> AgentContext:
+        self._evict_stale()
         if context_id and context_id in self._contexts:
-            return self._contexts[context_id]
+            ctx = self._contexts[context_id]
+            ctx._touch()
+            return ctx
         ctx = AgentContext(context_id=context_id or uuid4())
         self._contexts[ctx.context_id] = ctx
         logger.info("Created new context %s", ctx.context_id)
@@ -147,3 +153,22 @@ class ContextStore:
 
     def list_contexts(self) -> list[UUID]:
         return list(self._contexts.keys())
+
+    def _evict_stale(self) -> None:
+        """Remove contexts older than TTL or exceeding max count."""
+        now = datetime.utcnow()
+        expired = [
+            cid for cid, ctx in self._contexts.items()
+            if (now - ctx.updated_at).total_seconds() > self._TTL_SECONDS
+        ]
+        for cid in expired:
+            del self._contexts[cid]
+        if expired:
+            logger.info("Evicted %d stale contexts", len(expired))
+        # Hard cap — evict oldest if still over limit
+        if len(self._contexts) > self._MAX_CONTEXTS:
+            by_age = sorted(self._contexts.items(), key=lambda x: x[1].updated_at)
+            to_remove = len(self._contexts) - self._MAX_CONTEXTS
+            for cid, _ in by_age[:to_remove]:
+                del self._contexts[cid]
+            logger.info("Evicted %d contexts (over cap)", to_remove)
