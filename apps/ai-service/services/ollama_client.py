@@ -4,6 +4,7 @@ Supports free-tier cloud APIs (NO local Ollama required):
   1. Groq          – free tier, OpenAI-compatible  (GROQ_API_KEY)
   2. OpenRouter     – free models available         (OPENROUTER_API_KEY)
   3. HuggingFace    – free Inference API             (HF_API_TOKEN)
+  4. Ollama Cloud   – remote Ollama instance         (OLLAMA_CLOUD_API_KEY)
 
 The client auto-selects the first available provider based on which API key
 is configured, with automatic fallback to the next provider on failure.
@@ -27,10 +28,12 @@ logger = logging.getLogger(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 HF_API_TOKEN = os.getenv("HF_API_TOKEN", "")
+OLLAMA_CLOUD_API_KEY = os.getenv("OLLAMA_CLOUD_API_KEY", "")
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 HF_BASE_URL = "https://api-inference.huggingface.co/models"
+OLLAMA_CLOUD_BASE_URL = os.getenv("OLLAMA_CLOUD_BASE_URL", "https://api.ollama.com/v1")
 
 # Default models per provider (free-tier compatible)
 GROQ_MODELS = {
@@ -52,6 +55,12 @@ HF_MODELS = {
     "embed": os.getenv("HF_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
 }
 
+OLLAMA_CLOUD_MODELS = {
+    "chat": os.getenv("OLLAMA_CLOUD_CHAT_MODEL", "llama3.1"),
+    "code": os.getenv("OLLAMA_CLOUD_CODE_MODEL", "llama3.1"),
+    "fast": os.getenv("OLLAMA_CLOUD_FAST_MODEL", "llama3.1"),
+}
+
 # Legacy env-var compat
 DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "")
 CODE_MODEL = os.getenv("OLLAMA_CODE_MODEL", "")
@@ -64,6 +73,7 @@ class Provider:
     GROQ = "groq"
     OPENROUTER = "openrouter"
     HUGGINGFACE = "huggingface"
+    OLLAMA_CLOUD = "ollama_cloud"
 
 
 def _detect_providers() -> list[str]:
@@ -75,6 +85,8 @@ def _detect_providers() -> list[str]:
         providers.append(Provider.OPENROUTER)
     if HF_API_TOKEN:
         providers.append(Provider.HUGGINGFACE)
+    if OLLAMA_CLOUD_API_KEY:
+        providers.append(Provider.OLLAMA_CLOUD)
     return providers
 
 
@@ -91,7 +103,7 @@ class CloudLLMClient:
         if not self.providers:
             logger.warning(
                 "No cloud LLM API keys configured! Set GROQ_API_KEY, "
-                "OPENROUTER_API_KEY, or HF_API_TOKEN."
+                "OPENROUTER_API_KEY, HF_API_TOKEN, or OLLAMA_CLOUD_API_KEY."
             )
         else:
             logger.info("Cloud LLM providers: %s", self.providers)
@@ -129,6 +141,16 @@ class CloudLLMClient:
                     "Content-Type": "application/json",
                 },
             }
+        elif provider == Provider.OLLAMA_CLOUD:
+            return {
+                "base_url": OLLAMA_CLOUD_BASE_URL,
+                "api_key": OLLAMA_CLOUD_API_KEY,
+                "model": OLLAMA_CLOUD_MODELS.get(model_tier, OLLAMA_CLOUD_MODELS["chat"]),
+                "headers": {
+                    "Authorization": f"Bearer {OLLAMA_CLOUD_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+            }
         raise ValueError(f"Unknown provider: {provider}")
 
     # -- Health -----------------------------------------------------------
@@ -139,7 +161,7 @@ class CloudLLMClient:
             cfg = self._get_config(provider)
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
-                    if provider in (Provider.GROQ, Provider.OPENROUTER):
+                    if provider in (Provider.GROQ, Provider.OPENROUTER, Provider.OLLAMA_CLOUD):
                         resp = await client.get(
                             f"{cfg['base_url']}/models",
                             headers=cfg["headers"],
@@ -184,7 +206,7 @@ class CloudLLMClient:
             cfg = self._get_config(provider, model_tier)
             chosen_model = model or cfg["model"]
             try:
-                if provider in (Provider.GROQ, Provider.OPENROUTER):
+                if provider in (Provider.GROQ, Provider.OPENROUTER, Provider.OLLAMA_CLOUD):
                     return await self._chat_openai_compat(
                         cfg, all_messages, chosen_model,
                         temperature, max_tokens, json_mode,
@@ -308,7 +330,7 @@ class CloudLLMClient:
             cfg = self._get_config(provider, model_tier)
             chosen_model = model or cfg["model"]
             try:
-                if provider in (Provider.GROQ, Provider.OPENROUTER):
+                if provider in (Provider.GROQ, Provider.OPENROUTER, Provider.OLLAMA_CLOUD):
                     async for chunk in self._stream_openai_compat(
                         cfg, all_messages, chosen_model, temperature, max_tokens,
                     ):
@@ -426,7 +448,7 @@ class CloudLLMClient:
         for provider in self.providers:
             cfg = self._get_config(provider)
             try:
-                if provider in (Provider.GROQ, Provider.OPENROUTER):
+                if provider in (Provider.GROQ, Provider.OPENROUTER, Provider.OLLAMA_CLOUD):
                     async with httpx.AsyncClient(timeout=10.0) as client:
                         resp = await client.get(
                             f"{cfg['base_url']}/models", headers=cfg["headers"],

@@ -9,6 +9,7 @@ Go from zero to running in 5 steps.
   - [Groq](https://console.groq.com/keys) (recommended — fastest)
   - [OpenRouter](https://openrouter.ai/keys)
   - [HuggingFace](https://huggingface.co/settings/tokens)
+  - [Ollama](https://ollama.com/) Cloud (remote Ollama instance with API key)
 
 ## Steps
 

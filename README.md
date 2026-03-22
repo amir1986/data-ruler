@@ -2,7 +2,7 @@
 
 A self-hosted, AI-powered data management and analytics platform. Upload any file type, get automatic processing, interactive dashboards, AI-generated reports, and chat with an AI assistant that understands your data.
 
-**Cloud-only LLM inference** — no local GPU required. Uses free-tier cloud APIs (Groq, OpenRouter, HuggingFace).
+**Cloud-only LLM inference** — no local GPU required. Uses free-tier cloud APIs (Groq, OpenRouter, HuggingFace) or Ollama Cloud.
 
 ## Features
 
@@ -16,7 +16,7 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 - **Notes System** — Markdown notes with auto-save, linked to files or standalone
 - **Export** — Export dashboards and reports as JSON, export data as CSV, JSON, XLSX
 - **Settings** — Profile management, AI model configuration, server-side storage monitoring, and bulk file reprocessing
-- **Privacy First** — All data stays on your server. LLM calls go to free cloud APIs (Groq/OpenRouter/HuggingFace)
+- **Privacy First** — All data stays on your server. LLM calls go to free cloud APIs (Groq/OpenRouter/HuggingFace/Ollama Cloud)
 
 ## Tech Stack
 
@@ -27,7 +27,7 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 | State | Zustand |
 | Backend API | Next.js API Routes (BFF) + Python FastAPI (AI Service) |
 | Database | SQLite (catalog + user data), DuckDB (OLAP analytics) |
-| AI / LLM | Groq (free), OpenRouter (free), HuggingFace Inference API (free) |
+| AI / LLM | Groq (free), OpenRouter (free), HuggingFace Inference API (free), Ollama Cloud |
 | Embeddings | HuggingFace sentence-transformers |
 | Auth | JWT + bcrypt, cookie-based sessions |
 | Deployment | Docker Compose |
@@ -38,13 +38,13 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 git clone <repo-url>
 cd data-ruler
 cp .env.example .env
-# Edit .env — add at least one API key (GROQ_API_KEY, OPENROUTER_API_KEY, or HF_API_TOKEN)
+# Edit .env — add at least one API key (GROQ_API_KEY, OPENROUTER_API_KEY, HF_API_TOKEN, or OLLAMA_CLOUD_API_KEY)
 docker compose up --build -d
 ```
 
 Open http://localhost:3000 and create an account.
 
-Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), or [HuggingFace](https://huggingface.co/settings/tokens).
+Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), [HuggingFace](https://huggingface.co/settings/tokens), or use an [Ollama](https://ollama.com/) cloud API key.
 
 ## Deploy to a Domain
 
@@ -56,14 +56,17 @@ Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [Op
 
 ```bash
 # Required: at least ONE cloud LLM API key
-GROQ_API_KEY=gsk_...          # Groq (recommended, fastest)
-OPENROUTER_API_KEY=sk-or-...   # OpenRouter (most models)
-HF_API_TOKEN=hf_...            # HuggingFace (embeddings + chat)
+GROQ_API_KEY=gsk_...                  # Groq (recommended, fastest)
+OPENROUTER_API_KEY=sk-or-...           # OpenRouter (most models)
+HF_API_TOKEN=hf_...                    # HuggingFace (embeddings + chat)
+OLLAMA_CLOUD_API_KEY=...               # Ollama Cloud (remote Ollama instance)
 
 # Optional: model overrides
 GROQ_CHAT_MODEL=llama-3.3-70b-versatile
 GROQ_FAST_MODEL=llama-3.1-8b-instant
 OPENROUTER_CHAT_MODEL=meta-llama/llama-3.3-70b-instruct:free
+OLLAMA_CLOUD_BASE_URL=https://api.ollama.com/v1
+OLLAMA_CLOUD_CHAT_MODEL=llama3.1
 
 # Auth
 NEXTAUTH_SECRET=your-secret-key-here
@@ -509,7 +512,7 @@ data-ruler/
 │
 ├── data/                           # Runtime data (gitignored)
 ├── scripts/                        # Utility scripts (screenshot generation)
-├── docker-compose.yml              # Cloud-only (no local Ollama)
+├── docker-compose.yml              # Cloud-only (Groq/OpenRouter/HF/Ollama Cloud)
 ├── start.sh                        # One-command startup
 └── .env.example                    # Configuration template
 ```
