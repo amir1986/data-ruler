@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG BUILD_VERSION=dev
+ENV NEXT_PUBLIC_BUILD_VERSION=$BUILD_VERSION
 RUN npm run build
 
 # Production
