@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { AppShell } from '@/components/layout/app-shell';
+import { ChatPanel } from '@/components/chat/chat-panel';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardLayout({
@@ -71,6 +72,7 @@ export default function DashboardLayout({
       onLogout={handleLogout}
     >
       {children}
+      <ChatPanel />
     </AppShell>
   );
 }

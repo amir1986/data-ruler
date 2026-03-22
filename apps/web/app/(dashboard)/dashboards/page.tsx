@@ -28,12 +28,13 @@ import { useLanguageStore } from '@/stores/language-store';
 export default function DashboardsPage() {
   const router = useRouter();
   const {
-    dashboards,
+    dashboards: rawDashboards,
     loading,
     fetchDashboards,
     createDashboard,
     deleteDashboard,
   } = useDashboardStore();
+  const dashboards = rawDashboards || [];
   const { t, isRtl } = useLanguageStore();
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function DashboardsPage() {
   };
 
   // Mock stats based on actual data
-  const totalVisuals = (dashboards || []).reduce((acc, d) => acc + (d.widgets || []).length, 0) || 128;
+  const totalVisuals = dashboards.reduce((acc, d) => acc + (d.widgets || []).length, 0) || 128;
   const activeStreams = dashboards.length || 42;
 
   return (
