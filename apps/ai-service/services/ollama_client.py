@@ -249,7 +249,7 @@ class CloudLLMClient:
         model_tier: str = "chat",
         model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: int = 2048,
+        max_tokens: int | None = None,
         system: str | None = None,
         json_mode: bool = False,
     ) -> dict[str, Any]:
@@ -282,14 +282,15 @@ class CloudLLMClient:
 
     async def _chat_openai_compat(
         self, cfg: dict, messages: list, model: str,
-        temperature: float, max_tokens: int, json_mode: bool,
+        temperature: float, max_tokens: int | None, json_mode: bool,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
         }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
@@ -325,15 +326,17 @@ class CloudLLMClient:
 
     async def _chat_huggingface(
         self, cfg: dict, messages: list, model: str,
-        temperature: float, max_tokens: int,
+        temperature: float, max_tokens: int | None,
     ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "temperature": temperature,
+            "return_full_text": False,
+        }
+        if max_tokens is not None:
+            params["max_new_tokens"] = max_tokens
         payload = {
             "inputs": self._format_hf_messages(messages),
-            "parameters": {
-                "temperature": temperature,
-                "max_new_tokens": max_tokens,
-                "return_full_text": False,
-            },
+            "parameters": params,
         }
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
@@ -384,7 +387,7 @@ class CloudLLMClient:
         model_tier: str = "chat",
         model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: int = 2048,
+        max_tokens: int | None = None,
         system: str | None = None,
     ) -> AsyncIterator[str]:
         all_messages = list(messages)
@@ -417,15 +420,16 @@ class CloudLLMClient:
 
     async def _stream_openai_compat(
         self, cfg: dict, messages: list, model: str,
-        temperature: float, max_tokens: int,
+        temperature: float, max_tokens: int | None,
     ) -> AsyncIterator[str]:
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
             "stream": True,
         }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             async with client.stream(
                 "POST", f"{cfg['base_url']}/chat/completions",
@@ -569,7 +573,7 @@ async def chat_completion(
     messages: list[dict[str, str]],
     model: str | None = None,
     temperature: float = 0.7,
-    max_tokens: int = 2048,
+    max_tokens: int | None = None,
     system: str | None = None,
     model_tier: str = "chat",
     json_mode: bool = False,
@@ -586,7 +590,7 @@ async def chat_completion_stream(
     messages: list[dict[str, str]],
     model: str | None = None,
     temperature: float = 0.7,
-    max_tokens: int = 2048,
+    max_tokens: int | None = None,
     system: str | None = None,
     model_tier: str = "chat",
 ) -> AsyncIterator[str]:
