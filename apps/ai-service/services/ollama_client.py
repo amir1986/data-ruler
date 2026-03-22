@@ -81,19 +81,39 @@ def _strip_code_fences(text: str) -> str:
 
 
 def _ensure_alternating_roles(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Merge consecutive same-role messages to satisfy providers that require
-    strict user/assistant alternation (e.g. Ollama Cloud)."""
+    """Sanitize messages for providers requiring strict role alternation.
+
+    1. Merge consecutive same-role messages.
+    2. Ensure first non-system message is "user" (required by Ollama Cloud).
+    3. Ensure last message is "user" (the current question).
+    """
     if not messages:
         return messages
-    result: list[dict[str, str]] = [messages[0]]
+
+    # Step 1: merge consecutive same-role
+    merged: list[dict[str, str]] = [messages[0]]
     for msg in messages[1:]:
-        if msg["role"] == result[-1]["role"]:
-            result[-1] = {
-                "role": result[-1]["role"],
-                "content": result[-1]["content"] + "\n\n" + msg["content"],
+        if msg["role"] == merged[-1]["role"]:
+            merged[-1] = {
+                "role": merged[-1]["role"],
+                "content": merged[-1]["content"] + "\n\n" + msg["content"],
             }
         else:
+            merged.append(msg)
+
+    # Step 2: ensure first non-system message is "user"
+    result: list[dict[str, str]] = []
+    found_user = False
+    for msg in merged:
+        if msg["role"] == "system":
             result.append(msg)
+        elif not found_user and msg["role"] != "user":
+            # Drop leading assistant messages before first user message
+            continue
+        else:
+            found_user = True
+            result.append(msg)
+
     return result
 
 
