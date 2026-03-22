@@ -388,7 +388,7 @@ export default function ChatPage() {
       {/* ----------------------------------------------------------------- */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat header */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-card">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-8 w-8 rounded-full bg-purple-500/20">
               <Sparkles className="h-4 w-4 text-purple-400" />
@@ -412,7 +412,7 @@ export default function ChatPage() {
         </div>
 
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
           {/* Welcome banner when showing mock data */}
           {messages.length === 0 && (
             <div className="text-center mb-6">

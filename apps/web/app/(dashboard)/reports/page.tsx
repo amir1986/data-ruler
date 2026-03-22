@@ -192,9 +192,9 @@ export default function ReportsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-6 pt-5 pb-4 flex items-center justify-between">
+      <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-white">{t.reports.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.reports.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {t.reports.subtitle}
           </p>
@@ -208,7 +208,7 @@ export default function ReportsPage() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 pb-6 space-y-6">
+      <div className="flex-1 overflow-auto px-3 sm:px-6 pb-6 space-y-6">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -349,7 +349,7 @@ export default function ReportsPage() {
                     </div>
 
                     {/* Action buttons on hover */}
-                    <div className="absolute top-3 end-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-3 end-12 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       {report.status === 'draft' && (
                         <button
                           onClick={() => handleGenerate(report)}
@@ -374,7 +374,7 @@ export default function ReportsPage() {
                         e.stopPropagation();
                         handleDelete(report.id);
                       }}
-                      className="absolute top-3 end-3 p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 hover:bg-secondary transition-all"
+                      className="absolute top-3 end-3 p-1.5 rounded-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-red-400 hover:bg-secondary transition-all"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -400,7 +400,7 @@ export default function ReportsPage() {
 
       {/* Create Report Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-card border-border text-white max-w-lg">
+        <DialogContent className="bg-card border-border text-white max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">{t.reports.createNewReport}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -531,7 +531,7 @@ export default function ReportsPage() {
         open={!!activeReport}
         onOpenChange={(open) => !open && setActiveReport(null)}
       >
-        <DialogContent className="bg-card border-border text-white max-w-4xl max-h-[85vh] overflow-auto">
+        <DialogContent className="bg-card border-border text-white max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white text-xl">
               {activeReport?.title}

@@ -55,7 +55,7 @@ export default function DashboardsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-6 pt-5 pb-4">
+      <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4">
         <nav className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
           <span>{t.dashboards.breadcrumb}</span>
           <span className="text-muted-foreground/50">/</span>
@@ -63,7 +63,7 @@ export default function DashboardsPage() {
         </nav>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">{t.dashboards.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.dashboards.title}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {t.dashboards.subtitle}
             </p>
@@ -78,7 +78,7 @@ export default function DashboardsPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 pb-6 space-y-5">
+      <div className="flex-1 overflow-auto px-3 sm:px-6 pb-6 space-y-5">
         {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-xl border border-border bg-card p-5">

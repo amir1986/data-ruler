@@ -132,14 +132,14 @@ export default function SettingsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-6 pt-5 pb-4">
-        <h1 className="text-3xl font-bold text-white">{t.settings.title}</h1>
+      <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.settings.title}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {t.settings.subtitle}
         </p>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 pb-6">
+      <div className="flex-1 overflow-auto px-3 sm:px-6 pb-6">
         <div className="max-w-2xl space-y-8">
           {/* Profile Section */}
           <section>
@@ -147,7 +147,7 @@ export default function SettingsPage() {
               <User className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.profile}</h2>
             </div>
-            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
               <div className="space-y-2">
                 <Label className="text-zinc-300">{t.settings.displayName}</Label>
                 <Input
@@ -203,7 +203,7 @@ export default function SettingsPage() {
               )}
               <h2 className="text-lg font-semibold text-white">{t.settings.appearance}</h2>
             </div>
-            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">{t.settings.darkMode}</p>
@@ -225,7 +225,7 @@ export default function SettingsPage() {
               <Languages className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.language}</h2>
             </div>
-            <div className="rounded-xl border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">{t.settings.languageLabel}</p>
@@ -252,7 +252,7 @@ export default function SettingsPage() {
               <Brain className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.aiConfig}</h2>
             </div>
-            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
               <div className="space-y-2">
                 <Label className="text-zinc-300">{t.settings.modelSelection}</Label>
                 <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-secondary border border-border">
@@ -275,7 +275,7 @@ export default function SettingsPage() {
                 {t.settings.dataManagement}
               </h2>
             </div>
-            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">
@@ -337,7 +337,7 @@ export default function SettingsPage() {
               <Info className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-white">{t.settings.about}</h2>
             </div>
-            <div className="rounded-xl border border-border bg-card p-6 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-zinc-300">{t.settings.appVersion}</p>
                 <p className="text-sm font-mono text-muted-foreground">0.1.0</p>

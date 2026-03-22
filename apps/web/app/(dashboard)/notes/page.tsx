@@ -70,9 +70,9 @@ export default function NotesPage() {
   });
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full flex-col sm:flex-row">
       {/* Left panel: note list */}
-      <div className="w-80 shrink-0 border-e border-border flex flex-col bg-background">
+      <div className="w-full sm:w-80 shrink-0 border-e border-border flex flex-col bg-background max-h-[40vh] sm:max-h-full">
         {/* List header */}
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">

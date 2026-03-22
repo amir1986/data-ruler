@@ -269,7 +269,7 @@ function MonthlyReportView({ content, theme }: { content: ReportContent; theme: 
             <TrendingUp className={`h-4 w-4 ${theme.accent}`} />
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Processing Pipeline</h3>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Ingested', value: content.activity_stats.total_ingested, color: 'text-blue-400' },
               { label: 'Processed', value: content.activity_stats.total_processed, color: 'text-green-400' },

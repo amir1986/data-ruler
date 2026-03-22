@@ -211,14 +211,14 @@ export default function FilesPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-6 pt-5 pb-4">
+      <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4">
         <nav className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
           <span>{t.files.home}</span>
           <span className="text-muted-foreground/50">/</span>
           <span className="text-primary">{t.files.mainFiles}</span>
         </nav>
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">{t.files.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.files.title}</h1>
           <div className="flex items-center rounded-lg border border-border bg-card">
             <button
               onClick={() => setViewMode('list')}
@@ -240,11 +240,11 @@ export default function FilesPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 pb-6 space-y-4">
+      <div className="flex-1 overflow-auto px-3 sm:px-6 pb-6 space-y-4">
         {/* Upload zone */}
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer ${
+          className={`border-2 border-dashed rounded-xl p-4 sm:p-10 text-center transition-colors cursor-pointer ${
             isDragActive
               ? 'border-primary bg-primary/5'
               : 'border-border hover:border-muted-foreground/30 bg-card/50'
@@ -282,7 +282,7 @@ export default function FilesPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             {/* Select All */}
             <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
@@ -353,8 +353,8 @@ export default function FilesPage() {
           </div>
         ) : viewMode === 'list' ? (
           /* List view */
-          <div className="rounded-xl border border-border overflow-hidden">
-            <table className="w-full">
+          <div className="rounded-xl border border-border overflow-x-auto">
+            <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-border bg-card">
                   <th className="px-4 py-3 text-start text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-8">
@@ -597,16 +597,16 @@ export default function FilesPage() {
 
       {/* File detail dialog */}
       <Dialog open={!!detailFile} onOpenChange={(open) => !open && setDetailFile(null)}>
-        <DialogContent className="bg-card border-border text-white max-w-lg">
+        <DialogContent className="bg-card border-border text-white max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-white">{detailFile?.original_name}</DialogTitle>
+            <DialogTitle className="text-white truncate">{detailFile?.original_name}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               {t.files.fileDetails}
             </DialogDescription>
           </DialogHeader>
           {detailFile && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground text-xs uppercase tracking-wider">{t.files.type}</p>
                   <p className="text-zinc-200 mt-1">{detailFile.file_type}</p>
