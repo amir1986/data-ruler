@@ -231,7 +231,7 @@ class DocumentQAAgent(AgentBase):
                             doc = fitz.open(path)
                             pages_text = [p.get_text() for p in doc]
                             doc.close()
-                            content = "\n\n".join(pages_text)[:6000]
+                            content = "\n\n".join(pages_text)[:15000]
 
                         elif ext in (".xlsx", ".xls"):
                             content = DocumentQAAgent._extract_excel_for_ai(path)
@@ -256,12 +256,12 @@ class DocumentQAAgent(AgentBase):
 
                         elif ext == ".sql":
                             with open(path, "r", encoding="utf-8", errors="replace") as f:
-                                content = f.read(6000)
+                                content = f.read(15000)
 
                         elif ext in (".txt", ".md", ".html", ".json", ".xml",
                                      ".yaml", ".yml", ".toml", ".ini", ".log"):
                             with open(path, "r", encoding="utf-8", errors="replace") as f:
-                                content = f.read(6000)
+                                content = f.read(15000)
                     except Exception as exc:
                         meta_lines.append(f"Text extraction error: {exc}")
 
@@ -279,7 +279,7 @@ class DocumentQAAgent(AgentBase):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _extract_excel_for_ai(path: str, max_chars: int = 6000) -> str:
+    def _extract_excel_for_ai(path: str, max_chars: int = 15000) -> str:
         """Extract ALL sheets from an Excel file as markdown tables.
 
         AI best practice: present tabular data as markdown so the LLM
@@ -332,7 +332,7 @@ class DocumentQAAgent(AgentBase):
         return "\n".join(parts) if parts else ""
 
     @staticmethod
-    def _extract_docx_for_ai(path: str, max_chars: int = 6000) -> str:
+    def _extract_docx_for_ai(path: str, max_chars: int = 15000) -> str:
         """Extract text AND tables from a Word document.
 
         AI best practice: include structural elements (headings, tables)
@@ -387,7 +387,7 @@ class DocumentQAAgent(AgentBase):
         return "\n".join(parts) if parts else ""
 
     @staticmethod
-    def _extract_doc_for_ai(path: str, max_chars: int = 6000) -> str:
+    def _extract_doc_for_ai(path: str, max_chars: int = 15000) -> str:
         """Extract text from legacy .doc files using antiword.
 
         Antiword handles the old binary Word format reliably and
@@ -426,7 +426,7 @@ class DocumentQAAgent(AgentBase):
             return ""
 
     @staticmethod
-    def _extract_pptx_for_ai(path: str, max_chars: int = 6000) -> str:
+    def _extract_pptx_for_ai(path: str, max_chars: int = 15000) -> str:
         """Extract slides from PowerPoint as structured markdown.
 
         AI best practice: format each slide as a section with its
@@ -489,7 +489,7 @@ class DocumentQAAgent(AgentBase):
 
     @staticmethod
     def _extract_csv_for_ai(
-        path: str, ext: str = ".csv", max_chars: int = 6000,
+        path: str, ext: str = ".csv", max_chars: int = 15000,
     ) -> str:
         """Extract CSV/TSV as a markdown table with headers + sample rows.
 
@@ -563,7 +563,7 @@ class DocumentQAAgent(AgentBase):
                 return ""
 
     @staticmethod
-    def _extract_sqlite_for_ai(path: str, max_chars: int = 6000) -> str:
+    def _extract_sqlite_for_ai(path: str, max_chars: int = 15000) -> str:
         """Extract schema + sample data from SQLite/DB files.
 
         AI best practice: list every table with its schema and a few
@@ -641,7 +641,7 @@ class DocumentQAAgent(AgentBase):
             conn.close()
 
     @staticmethod
-    def _extract_access_for_ai(path: str, max_chars: int = 6000) -> str:
+    def _extract_access_for_ai(path: str, max_chars: int = 15000) -> str:
         """Extract schema + sample data from MS Access (.mdb/.accdb) files.
 
         Uses mdbtools command-line utilities which handle both MDB and
