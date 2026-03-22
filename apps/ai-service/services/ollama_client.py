@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any, AsyncIterator
 
 import httpx
@@ -67,6 +68,15 @@ CODE_MODEL = os.getenv("OLLAMA_CODE_MODEL", "")
 EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "")
 
 DEFAULT_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
+
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?\s*```$", re.DOTALL)
+
+
+def _strip_code_fences(text: str) -> str:
+    """Strip markdown code fences that some providers wrap around JSON responses."""
+    text = text.strip()
+    m = _CODE_FENCE_RE.match(text)
+    return m.group(1).strip() if m else text
 
 
 class Provider:
@@ -247,8 +257,11 @@ class CloudLLMClient:
         choice = data.get("choices", [{}])[0]
         message = choice.get("message", {})
         usage = data.get("usage", {})
+        content = message.get("content", "")
+        if json_mode and content:
+            content = _strip_code_fences(content)
         return {
-            "content": message.get("content", ""),
+            "content": content,
             "role": message.get("role", "assistant"),
             "model": data.get("model", model),
             "provider": cfg["base_url"],
