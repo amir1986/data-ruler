@@ -450,7 +450,7 @@ export default function FilesPage() {
                             <span className="text-muted-foreground text-xs">&#x2022;</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground/50">Error</span>
+                          <span className="text-sm text-muted-foreground/50">{t.files.notRated}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">

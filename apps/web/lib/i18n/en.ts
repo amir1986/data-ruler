@@ -93,6 +93,7 @@ const en = {
     status: 'Status',
     quality: 'Quality',
     qualityScore: 'Quality Score',
+    notRated: 'Not Rated',
     actions: 'Actions',
     category: 'Category',
     viewDetails: 'View Details',

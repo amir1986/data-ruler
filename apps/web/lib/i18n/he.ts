@@ -95,6 +95,7 @@ const he: TranslationKeys = {
     status: 'סטטוס',
     quality: 'איכות',
     qualityScore: 'ציון איכות',
+    notRated: 'לא דורג',
     actions: 'פעולות',
     category: 'קטגוריה',
     viewDetails: 'הצג פרטים',
