@@ -404,8 +404,7 @@ class OrchestratorAgent(AgentBase):
         locale: str = "en",
     ) -> str:
         """Use LLM to synthesize agent results into a coherent response."""
-        # Truncate results for the LLM context window
-        results_summary = json.dumps(results, default=str)[:4000]
+        results_summary = json.dumps(results, default=str)
 
         lang_instruction = ""
         if locale == "he":
@@ -417,17 +416,18 @@ class OrchestratorAgent(AgentBase):
                     f"User asked: {user_message}\n\n"
                     f"Intent: {plan.get('intent')}\n"
                     f"Agent results:\n{results_summary}\n\n"
-                    "Synthesize these results into a clear, helpful response for the user. "
-                    "If there are data tables, format them nicely. If there are errors, "
-                    f"explain what went wrong and suggest alternatives.{lang_instruction}"
+                    "Synthesize these results into a comprehensive, detailed response. "
+                    "Include ALL data from the agent results — do not summarize or skip data. "
+                    "If there are data tables, format them as markdown tables. "
+                    f"If there are errors, explain what went wrong.{lang_instruction}"
                 )}],
                 system=(
                     "You are a helpful data assistant. Synthesize agent results into "
-                    "clear, concise responses. Use markdown formatting for tables and code."
+                    "comprehensive responses. Use markdown formatting for tables and code. "
+                    "Include all relevant data — never truncate or abbreviate."
                 ),
                 temperature=0.5,
-                max_tokens=1024,
-                model_tier="fast",
+                model_tier="chat",
             )
             return synthesis
         except Exception as exc:

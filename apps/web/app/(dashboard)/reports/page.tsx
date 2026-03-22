@@ -137,11 +137,12 @@ export default function ReportsPage() {
     const title = newTitle || `${template.title} - ${format(new Date(), 'MMM d, yyyy')}`;
     const report = await createReport(selectedTemplate, title, selectedFileIds);
     if (report) {
-      setActiveReport(report);
       setShowCreate(false);
       setSelectedTemplate(null);
       setNewTitle('');
       setSelectedFileIds([]);
+      // Auto-generate immediately after creation
+      handleGenerate(report);
     }
   };
 
@@ -157,9 +158,8 @@ export default function ReportsPage() {
       if (res.ok) {
         const data = await res.json();
         await fetchReports();
-        if (activeReport?.id === report.id) {
-          setActiveReport(data.report);
-        }
+        // Always open the generated report for viewing
+        setActiveReport(data.report);
       } else {
         await updateReport(report.id, { status: 'error' } as Partial<Report>);
       }
