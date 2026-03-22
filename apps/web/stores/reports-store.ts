@@ -41,7 +41,7 @@ export const useReportsStore = create<ReportsState>((set, get) => ({
       const res = await fetch('/api/reports');
       if (res.ok) {
         const data = await res.json();
-        set({ reports: data.reports, loading: false });
+        set({ reports: data.reports || [], loading: false });
       } else {
         set({ loading: false });
       }

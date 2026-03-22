@@ -94,7 +94,7 @@ export const useFileStore = create<FileState>((set, get) => ({
       const res = await fetch(`/api/files?${searchParams}`);
       if (res.ok) {
         const data = await res.json();
-        set({ files: data.files, loading: false });
+        set({ files: data.files || [], loading: false });
       } else {
         set({ loading: false });
       }

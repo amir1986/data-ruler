@@ -68,7 +68,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const res = await fetch('/api/dashboards');
       if (res.ok) {
         const data = await res.json();
-        set({ dashboards: data.dashboards, loading: false });
+        set({ dashboards: data.dashboards || [], loading: false });
       }
     } catch {
       set({ loading: false });

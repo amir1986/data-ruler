@@ -48,7 +48,7 @@ export default function DashboardsPage() {
   };
 
   // Mock stats based on actual data
-  const totalVisuals = dashboards.reduce((acc, d) => acc + (d.widgets || []).length, 0) || 128;
+  const totalVisuals = (dashboards || []).reduce((acc, d) => acc + (d.widgets || []).length, 0) || 128;
   const activeStreams = dashboards.length || 42;
 
   return (

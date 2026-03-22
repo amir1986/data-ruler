@@ -41,7 +41,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       const res = await fetch('/api/notes');
       if (res.ok) {
         const data = await res.json();
-        set({ notes: data.notes, loading: false });
+        set({ notes: data.notes || [], loading: false });
       }
     } catch {
       set({ loading: false });

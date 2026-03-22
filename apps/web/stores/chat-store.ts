@@ -60,7 +60,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const res = await fetch('/api/chat/history');
       if (res.ok) {
         const data = await res.json();
-        set({ messages: data.messages, loading: false });
+        set({ messages: data.messages || [], loading: false });
       }
     } catch {
       set({ loading: false });
