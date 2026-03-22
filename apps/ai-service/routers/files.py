@@ -79,21 +79,76 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
             processor = DatabaseImporterAgent()
             result = await processor.process_file(file_path, file_type)
 
-        # Stage 3: Schema inference
-        if result.get("columns") and result.get("rows"):
+        # ── Collect sheet data ─────────────────────────────────────
+        # Normalise results from ANY processor into a uniform list of
+        # (sheet_name, columns, rows) tuples so Stages 3 & 4 are
+        # completely format-agnostic.
+        #
+        # Sources:
+        #   - Multi-sheet Excel → "all_sheets" dict
+        #   - Database importer → "tables" list of {name, columns, rows}
+        #   - Everything else   → top-level "columns"+"rows"
+        all_sheets = result.get("all_sheets", {})
+        db_tables = result.get("tables", [])
+
+        if all_sheets and len(all_sheets) > 1:
+            sheets = [
+                (sname, sdata.get("columns", []), sdata.get("rows", []))
+                for sname, sdata in all_sheets.items()
+                if sdata.get("columns")
+            ]
+        elif db_tables:
+            # Database files: each table becomes a "sheet"
+            sheets = [
+                (t.get("name", f"table_{i}"), t.get("columns", []), t.get("rows", []))
+                for i, t in enumerate(db_tables)
+                if t.get("columns")
+            ]
+        elif result.get("columns") and result.get("rows"):
+            sheets = [(None, result["columns"], result["rows"])]
+        else:
+            sheets = []
+
+        # ── Stage 3: Schema inference (per-sheet) ────────────────
+        if sheets:
             from agents.schema_inference import SchemaInferenceAgent
             schema_agent = SchemaInferenceAgent()
-            schema_msg = AgentMessage(
-                message_type=AgentMessageType.REQUEST,
-                source_agent="file_processor",
-                target_agent="schema_inference",
-                payload={
-                    "columns": result["columns"],
-                    "rows": result["rows"][:1000],
-                },
+
+            combined_schema = []
+            total_rows = 0
+            max_cols = 0
+            quality_scores = []
+
+            for sheet_name, columns, rows in sheets:
+                schema_msg = AgentMessage(
+                    message_type=AgentMessageType.REQUEST,
+                    source_agent="file_processor",
+                    target_agent="schema_inference",
+                    payload={
+                        "columns": columns,
+                        "rows": rows[:1000],
+                    },
+                )
+                schema_result = await schema_agent.process(schema_msg)
+                schema_data = schema_result.payload
+
+                sheet_cols = schema_data.get("schema", [])
+                # Tag each column with its sheet name for multi-sheet
+                if sheet_name:
+                    for col in sheet_cols:
+                        col["sheet"] = sheet_name
+                combined_schema.extend(sheet_cols)
+
+                total_rows += len(rows)
+                max_cols = max(max_cols, len(columns))
+                qp = schema_data.get("quality_profile", {})
+                if qp.get("score"):
+                    quality_scores.append(qp["score"])
+
+            avg_quality = (
+                round(sum(quality_scores) / len(quality_scores), 1)
+                if quality_scores else 0
             )
-            schema_result = await schema_agent.process(schema_msg)
-            schema_data = schema_result.payload
 
             conn.execute(
                 """UPDATE files SET
@@ -102,11 +157,11 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
                     processing_status = 'ready'
                    WHERE id = ?""",
                 (
-                    json.dumps(schema_data.get("schema", [])),
-                    len(result.get("rows", [])),
-                    len(result.get("columns", [])),
-                    json.dumps(schema_data.get("quality_profile", {})),
-                    schema_data.get("quality_profile", {}).get("score", 0),
+                    json.dumps(combined_schema),
+                    total_rows,
+                    max_cols,
+                    json.dumps({"score": avg_quality}),
+                    avg_quality,
                     file_id,
                 )
             )
@@ -116,31 +171,53 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
                 (file_id,)
             )
 
-        # Stage 4: Store data in user's database
-        if result.get("columns") and result.get("rows"):
+        # ── Stage 4: Store data in user's database (all sheets) ──
+        if sheets:
             user_db_path = os.path.join(DATABASE_PATH, user_id, "user_data.db")
             os.makedirs(os.path.dirname(user_db_path), exist_ok=True)
             user_conn = sqlite3.connect(user_db_path)
 
-            table_name = f"file_{file_id.replace('-', '_')}"
-            columns = result["columns"]
-            col_defs = ", ".join(f'"{c}" TEXT' for c in columns)
-            user_conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ({col_defs})')
+            base_table = f"file_{file_id.replace('-', '_')}"
+            sheet_table_map = {}  # sheet_name -> table_name
 
-            placeholders = ", ".join(["?"] * len(columns))
-            for row in result["rows"]:
-                values = [str(row.get(c, "")) if row.get(c) is not None else None for c in columns]
+            for idx, (sheet_name, columns, rows) in enumerate(sheets):
+                table_name = base_table if idx == 0 else f"{base_table}__s{idx}"
+                sheet_table_map[sheet_name or f"Sheet{idx + 1}"] = table_name
+
+                col_defs = ", ".join(f'"{c}" TEXT' for c in columns)
                 user_conn.execute(
-                    f'INSERT INTO "{table_name}" VALUES ({placeholders})',
-                    values,
+                    f'CREATE TABLE IF NOT EXISTS "{table_name}" ({col_defs})'
                 )
+
+                placeholders = ", ".join(["?"] * len(columns))
+                insert_sql = f'INSERT INTO "{table_name}" VALUES ({placeholders})'
+                batch = []
+                for row in rows:
+                    values = [
+                        str(row.get(c, "")) if row.get(c) is not None else None
+                        for c in columns
+                    ]
+                    batch.append(values)
+                    if len(batch) >= 1000:
+                        user_conn.executemany(insert_sql, batch)
+                        batch = []
+                if batch:
+                    user_conn.executemany(insert_sql, batch)
+
             user_conn.commit()
             user_conn.close()
+
+            # Store table mapping: plain string for single-sheet,
+            # JSON object for multi-sheet (backward compatible).
+            if len(sheet_table_map) == 1:
+                db_table_value = base_table
+            else:
+                db_table_value = json.dumps(sheet_table_map)
 
             conn.execute(
                 """UPDATE files SET db_table_name = ?, storage_backend = 'sqlite',
                     db_file_path = ? WHERE id = ?""",
-                (table_name, user_db_path, file_id)
+                (db_table_value, user_db_path, file_id)
             )
 
         conn.commit()

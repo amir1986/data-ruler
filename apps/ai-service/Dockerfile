@@ -5,6 +5,8 @@ WORKDIR /app
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
+    antiword \
+    mdbtools \
     && rm -rf /var/lib/apt/lists/*
 
 # Python dependencies

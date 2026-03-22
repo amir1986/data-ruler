@@ -28,8 +28,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const category = file.file_category as string;
 
     if (category === 'tabular') {
-      const tableName = file.db_table_name as string;
-      if (!tableName) {
+      const rawTableName = file.db_table_name as string;
+      if (!rawTableName) {
         return successResponse({
           type: 'tabular',
           status: 'not_ready',
@@ -37,8 +37,55 @@ export async function GET(req: NextRequest, context: RouteContext) {
         });
       }
 
+      // Multi-sheet Excel: db_table_name is JSON mapping sheet→table
+      let sheetTables: Record<string, string> | null = null;
+      if (rawTableName.startsWith('{')) {
+        try {
+          sheetTables = JSON.parse(rawTableName);
+        } catch {
+          // not JSON — treat as plain table name
+        }
+      }
+
       const userDb = getUserDb(user.id);
       try {
+        if (sheetTables && Object.keys(sheetTables).length > 1) {
+          // Multi-sheet: return data from all sheets
+          const sheets: Record<string, { columns: string[]; rows: unknown[]; rowCount: number }> = {};
+          for (const [sheetName, tableName] of Object.entries(sheetTables)) {
+            try {
+              const sheetRows = userDb.prepare(
+                `SELECT * FROM "${tableName}" LIMIT 100`
+              ).all();
+              const cols = sheetRows.length > 0
+                ? Object.keys(sheetRows[0] as Record<string, unknown>)
+                : [];
+              const total = userDb.prepare(
+                `SELECT COUNT(*) as c FROM "${tableName}"`
+              ).get() as { c: number };
+              sheets[sheetName] = {
+                columns: cols,
+                rows: sheetRows,
+                rowCount: total?.c ?? sheetRows.length,
+              };
+            } catch {
+              // sheet table missing — skip
+            }
+          }
+
+          return successResponse({
+            type: 'tabular',
+            multiSheet: true,
+            sheets,
+            totalRows: file.row_count,
+          });
+        }
+
+        // Single sheet (plain table name or single-entry JSON)
+        const tableName = sheetTables
+          ? Object.values(sheetTables)[0]
+          : rawTableName;
+
         const rows = userDb.prepare(
           `SELECT * FROM "${tableName}" LIMIT 100`
         ).all();

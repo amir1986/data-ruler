@@ -60,23 +60,53 @@ def get_user_schema_context(user_id: str, file_id: str | None = None) -> str:
         context_parts = []
         for row in rows:
             schema = row["schema_snapshot"]
-            cols_info = ""
+            db_table_name = row["db_table_name"] or ""
+
+            # Detect multi-sheet Excel: db_table_name is JSON
+            sheet_tables = {}
+            if db_table_name.startswith("{"):
+                try:
+                    sheet_tables = json.loads(db_table_name)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Parse schema snapshot (may include "sheet" tags)
+            parsed_schema = []
             if schema:
                 try:
-                    parsed = json.loads(schema)
-                    if isinstance(parsed, list):
-                        cols_info = ", ".join(
-                            f"{c.get('name', 'unknown')} ({c.get('inferred_type', 'text')})"
-                            for c in parsed[:20]
-                        )
+                    parsed_schema = json.loads(schema)
+                    if not isinstance(parsed_schema, list):
+                        parsed_schema = []
                 except (json.JSONDecodeError, TypeError):
-                    cols_info = str(schema)[:200]
+                    parsed_schema = []
 
-            context_parts.append(
-                f"Table: {row['db_table_name']} (from {row['original_name']}, "
-                f"{row['row_count'] or '?'} rows, type: {row['file_type']})\n"
-                f"  Columns: {cols_info}"
-            )
+            if sheet_tables:
+                # Multi-sheet workbook: list each sheet's table + columns
+                for sheet_name, table_name in sheet_tables.items():
+                    sheet_cols = [
+                        c for c in parsed_schema
+                        if c.get("sheet") == sheet_name
+                    ]
+                    cols_info = ", ".join(
+                        f"{c.get('name', '?')} ({c.get('inferred_type', 'text')})"
+                        for c in sheet_cols[:20]
+                    )
+                    context_parts.append(
+                        f"Table: {table_name} (from {row['original_name']}, "
+                        f"sheet: \"{sheet_name}\", type: {row['file_type']})\n"
+                        f"  Columns: {cols_info}"
+                    )
+            else:
+                # Single-sheet / non-Excel
+                cols_info = ", ".join(
+                    f"{c.get('name', '?')} ({c.get('inferred_type', 'text')})"
+                    for c in parsed_schema[:20]
+                )
+                context_parts.append(
+                    f"Table: {db_table_name} (from {row['original_name']}, "
+                    f"{row['row_count'] or '?'} rows, type: {row['file_type']})\n"
+                    f"  Columns: {cols_info}"
+                )
 
         return "\n\n".join(context_parts)
     finally:
