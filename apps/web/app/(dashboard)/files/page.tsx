@@ -203,6 +203,7 @@ export default function FilesPage() {
   };
 
   const handleAddToChat = (file: FileItem) => {
+    setDetailFile(null);
     setContextFile(file.id);
     setChatOpen(true);
   };

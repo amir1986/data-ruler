@@ -238,7 +238,7 @@ const en = {
     dataSourcesSelected: 'selected',
     dataSourcesHint: 'Select files to include in the analysis. Leave empty to use all available data.',
     createReport: 'Create Report',
-    exportJson: 'Export JSON',
+    exportJson: 'Export Excel',
     regenerate: 'Regenerate',
     generated: 'Generated',
     files: 'file(s)',

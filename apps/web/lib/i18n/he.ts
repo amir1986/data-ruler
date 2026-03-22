@@ -240,7 +240,7 @@ const he: TranslationKeys = {
     dataSourcesSelected: 'נבחרו',
     dataSourcesHint: 'בחר קבצים לכלול בניתוח. השאר ריק כדי להשתמש בכל הנתונים הזמינים.',
     createReport: 'צור דוח',
-    exportJson: 'ייצוא JSON',
+    exportJson: 'ייצוא Excel',
     regenerate: 'הפק מחדש',
     generated: 'הופק',
     files: 'קבצים',

@@ -38,6 +38,7 @@ import {
 import { useLanguageStore } from '@/stores/language-store';
 import { format } from 'date-fns';
 import { safeFormatDate } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 import ReportViewer from '@/components/reports/report-viewer';
 
 function getStatusStyle(status: string) {
@@ -590,16 +591,43 @@ export default function ReportsPage() {
               <div className="flex gap-2 pt-2">
                 <Button
                   onClick={() => {
-                    const blob = new Blob(
-                      [JSON.stringify(activeReport.content, null, 2)],
-                      { type: 'application/json' }
-                    );
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${activeReport.title.replace(/\s+/g, '_').toLowerCase()}.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
+                    const content = activeReport.content as Record<string, unknown>;
+                    const wb = XLSX.utils.book_new();
+
+                    // Summary sheet
+                    const summaryRows = [
+                      ['Title', activeReport.title],
+                      ['Template', String(content.template || '')],
+                      ['Generated', String(content.generated_at || '')],
+                      ['Summary', String(content.summary || '')],
+                    ];
+                    if (content.kpis && Array.isArray(content.kpis)) {
+                      summaryRows.push([]);
+                      summaryRows.push(['KPI', 'Value', 'Detail']);
+                      (content.kpis as { label: string; value: string; sublabel?: string }[]).forEach((kpi) => {
+                        summaryRows.push([kpi.label, kpi.value, kpi.sublabel || '']);
+                      });
+                    }
+                    const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
+                    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+                    // Sections sheet
+                    if (content.sections && Array.isArray(content.sections)) {
+                      const sectionRows: string[][] = [['Section', 'Content']];
+                      (content.sections as { title: string; content: string }[]).forEach((s) => {
+                        sectionRows.push([s.title, s.content]);
+                      });
+                      const sectionsWs = XLSX.utils.aoa_to_sheet(sectionRows);
+                      XLSX.utils.book_append_sheet(wb, sectionsWs, 'Sections');
+                    }
+
+                    // Files sheet
+                    if (content.files && Array.isArray(content.files) && (content.files as unknown[]).length > 0) {
+                      const filesWs = XLSX.utils.json_to_sheet(content.files as Record<string, unknown>[]);
+                      XLSX.utils.book_append_sheet(wb, filesWs, 'Files');
+                    }
+
+                    XLSX.writeFile(wb, `${activeReport.title.replace(/\s+/g, '_').toLowerCase()}.xlsx`);
                   }}
                   variant="outline"
                   className="border-border text-zinc-300"
