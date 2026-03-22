@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
-import { getDb } from '@/lib/db';
-import crypto from 'crypto';
+import { getDb, getUserDb } from '@/lib/db';
+
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,40 +15,93 @@ export async function POST(req: NextRequest) {
 
     // Get all user files that have been processed (ready or error status)
     const files = db.prepare(
-      `SELECT id, original_name, file_category
+      `SELECT id, original_name, stored_path, db_table_name
        FROM files
        WHERE user_id = ? AND processing_status IN ('ready', 'error')`
-    ).all(user.id) as Array<{ id: string; original_name: string; file_category: string }>;
+    ).all(user.id) as Array<{
+      id: string;
+      original_name: string;
+      stored_path: string;
+      db_table_name: string | null;
+    }>;
 
     if (files.length === 0) {
       return errorResponse('No files available to reprocess', 400);
     }
 
-    // Reset file statuses to pending
+    // Drop existing data tables so they get recreated with new code
+    try {
+      const userDb = getUserDb(user.id);
+      for (const file of files) {
+        if (file.db_table_name) {
+          // Handle multi-sheet JSON table names
+          let tableNames: string[] = [];
+          if (file.db_table_name.startsWith('{')) {
+            try {
+              const mapping = JSON.parse(file.db_table_name);
+              tableNames = Object.values(mapping);
+            } catch {
+              tableNames = [file.db_table_name];
+            }
+          } else {
+            tableNames = [file.db_table_name];
+          }
+          for (const tbl of tableNames) {
+            try {
+              userDb.prepare(`DROP TABLE IF EXISTS "${tbl}"`).run();
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+      userDb.close();
+    } catch {
+      // user db might not exist yet
+    }
+
+    // Reset file statuses and clear old metadata
     const resetStmt = db.prepare(
-      `UPDATE files SET processing_status = 'pending', processing_error = NULL, updated_at = CURRENT_TIMESTAMP
+      `UPDATE files SET
+        processing_status = 'pending',
+        processing_error = NULL,
+        db_table_name = NULL,
+        schema_snapshot = NULL,
+        row_count = NULL,
+        column_count = NULL,
+        quality_score = NULL,
+        quality_profile = NULL,
+        updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND user_id = ?`
     );
 
-    // Create processing tasks for each file
-    const insertTask = db.prepare(
-      `INSERT INTO processing_tasks (id, user_id, file_id, task_type, status, priority)
-       VALUES (?, ?, ?, ?, 'pending', 5)`
-    );
+    for (const file of files) {
+      resetStmt.run(file.id, user.id);
+    }
 
-    const reprocessTransaction = db.transaction(() => {
-      for (const file of files) {
-        resetStmt.run(file.id, user.id);
-        const taskId = crypto.randomUUID().replace(/-/g, '');
-        insertTask.run(taskId, user.id, file.id, 'reprocess');
+    // Trigger AI service processing for each file
+    let triggered = 0;
+    for (const file of files) {
+      try {
+        await fetch(`${AI_SERVICE_URL}/api/files/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            file_id: file.id,
+            user_id: user.id,
+            file_path: file.stored_path,
+            original_name: file.original_name,
+          }),
+        });
+        triggered++;
+      } catch (err) {
+        console.error(`Failed to trigger reprocess for ${file.id}:`, err);
       }
-    });
-
-    reprocessTransaction();
+    }
 
     return successResponse({
-      message: `Queued ${files.length} file(s) for reprocessing`,
-      file_count: files.length,
+      message: `Reprocessing ${triggered} of ${files.length} file(s)`,
+      file_count: triggered,
     });
   } catch (error) {
     console.error('Reprocess error:', error);
