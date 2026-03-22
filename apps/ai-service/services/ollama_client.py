@@ -57,10 +57,12 @@ HF_MODELS = {
     "embed": os.getenv("HF_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
 }
 
+# Ollama Cloud model is locked — not user-configurable
+_OLLAMA_CLOUD_MODEL = "gemini-3-flash-preview"
 OLLAMA_CLOUD_MODELS = {
-    "chat": os.getenv("OLLAMA_CLOUD_CHAT_MODEL", "gemma3:12b"),
-    "code": os.getenv("OLLAMA_CLOUD_CODE_MODEL", "gemma3:12b"),
-    "fast": os.getenv("OLLAMA_CLOUD_FAST_MODEL", "gemma3:12b"),
+    "chat": _OLLAMA_CLOUD_MODEL,
+    "code": _OLLAMA_CLOUD_MODEL,
+    "fast": _OLLAMA_CLOUD_MODEL,
 }
 
 # Legacy env-var compat

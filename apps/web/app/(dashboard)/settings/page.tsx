@@ -254,34 +254,12 @@ export default function SettingsPage() {
             </div>
             <div className="rounded-xl border border-border bg-card p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-zinc-300">{t.settings.ollamaUrl}</Label>
-                <Input
-                  value={ollamaUrl}
-                  onChange={(e) => setOllamaUrl(e.target.value)}
-                  placeholder={t.settings.ollamaUrlPlaceholder}
-                  className="bg-secondary border-border text-white placeholder-muted-foreground font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground/60">
-                  {t.settings.ollamaUrlDesc}
-                </p>
-              </div>
-              <div className="space-y-2">
                 <Label className="text-zinc-300">{t.settings.modelSelection}</Label>
-                <Select value={aiModel} onValueChange={setAiModel}>
-                  <SelectTrigger className="bg-secondary border-border text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="qwen2.5:7b">Qwen 2.5 7B (Default)</SelectItem>
-                    <SelectItem value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</SelectItem>
-                    <SelectItem value="llama3.1:8b">Llama 3.1 8B</SelectItem>
-                    <SelectItem value="llama3.1:70b">Llama 3.1 70B</SelectItem>
-                    <SelectItem value="mistral:7b">Mistral 7B</SelectItem>
-                    <SelectItem value="mixtral:8x7b">Mixtral 8x7B</SelectItem>
-                    <SelectItem value="codellama:13b">Code Llama 13B</SelectItem>
-                    <SelectItem value="nomic-embed-text">Nomic Embed Text</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-secondary border border-border">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-white font-mono text-sm">gemini-3-flash-preview</span>
+                  <span className="text-xs text-muted-foreground/60 ms-auto">Ollama Cloud</span>
+                </div>
                 <p className="text-xs text-muted-foreground/60">
                   {t.settings.modelDesc}
                 </p>
