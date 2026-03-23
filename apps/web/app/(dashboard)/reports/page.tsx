@@ -696,7 +696,7 @@ export default function ReportsPage() {
                   className="border-border text-zinc-300"
                 >
                   <Download className="h-4 w-4 me-2" />
-                  {t.reports.exportJson}
+                  {t.reports.exportExcel}
                 </Button>
                 <Button
                   onClick={() => handleGenerate(activeReport)}

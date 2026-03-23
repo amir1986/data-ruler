@@ -16,7 +16,9 @@ interface Column {
 
 interface TableInfo {
   name: string;
-  row_count: number;
+  tableName?: string;
+  row_count?: number;
+  rowCount?: number;
   columns: Column[];
 }
 
@@ -83,10 +85,12 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
     setExpandedTables(next);
   };
 
-  const previewTable = async (tableName: string) => {
-    setSelectedTable(tableName);
+  const previewTable = async (table: TableInfo) => {
+    setSelectedTable(table.name);
     try {
-      const res = await fetch(`/api/files/${fileId}/tables/${tableName}/preview`);
+      // Use the preview route with sheet parameter for multi-table files
+      const sheetParam = tables.length > 1 ? `?sheet=${encodeURIComponent(table.name)}` : '';
+      const res = await fetch(`/api/files/${fileId}/preview${sheetParam}`);
       if (res.ok) {
         const data = await res.json();
         setPreviewData(data.rows || []);
@@ -118,48 +122,51 @@ export function DatabaseBrowser({ fileId, fileName, tables: initialTables }: Dat
       <div className="flex flex-1 overflow-hidden">
         {/* Table Tree */}
         <div className="w-64 border-e border-zinc-800 overflow-y-auto">
-          {tables.map((table) => (
-            <div key={table.name}>
-              <button
-                onClick={() => toggleTable(table.name)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-zinc-800/50 transition"
-              >
-                {expandedTables.has(table.name) ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-                )}
-                <Table2 className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-zinc-300 truncate flex-1 text-start">{table.name}</span>
-                <span className="text-xs text-zinc-600">{table.row_count}</span>
-              </button>
+          {tables.map((table) => {
+            const rowCount = table.rowCount ?? table.row_count ?? 0;
+            return (
+              <div key={table.name}>
+                <button
+                  onClick={() => toggleTable(table.name)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-zinc-800/50 transition"
+                >
+                  {expandedTables.has(table.name) ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                  )}
+                  <Table2 className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-zinc-300 truncate flex-1 text-start">{table.name}</span>
+                  <span className="text-xs text-zinc-600">{rowCount}</span>
+                </button>
 
-              {expandedTables.has(table.name) && (
-                <div className="ms-8 border-s border-zinc-800">
-                  {table.columns.map((col) => {
-                    const ColIcon = getTypeIcon(col.type);
-                    return (
-                      <div key={col.name} className="flex items-center gap-2 px-3 py-1 text-xs">
-                        {col.is_primary_key ? (
-                          <Key className="w-3 h-3 text-yellow-500" />
-                        ) : (
-                          <ColIcon className="w-3 h-3 text-zinc-600" />
-                        )}
-                        <span className="text-zinc-400 truncate">{col.name}</span>
-                        <span className="text-zinc-600 ms-auto">{col.type}</span>
-                      </div>
-                    );
-                  })}
-                  <button
-                    onClick={() => previewTable(table.name)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 transition"
-                  >
-                    <Eye className="w-3 h-3" /> {t.database.previewData}
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+                {expandedTables.has(table.name) && (
+                  <div className="ms-8 border-s border-zinc-800">
+                    {table.columns.map((col) => {
+                      const ColIcon = getTypeIcon(col.type);
+                      return (
+                        <div key={col.name} className="flex items-center gap-2 px-3 py-1 text-xs">
+                          {col.is_primary_key ? (
+                            <Key className="w-3 h-3 text-yellow-500" />
+                          ) : (
+                            <ColIcon className="w-3 h-3 text-zinc-600" />
+                          )}
+                          <span className="text-zinc-400 truncate">{col.name}</span>
+                          <span className="text-zinc-600 ms-auto">{col.type}</span>
+                        </div>
+                      );
+                    })}
+                    <button
+                      onClick={() => previewTable(table)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 transition"
+                    >
+                      <Eye className="w-3 h-3" /> {t.database.previewData}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Preview Panel */}

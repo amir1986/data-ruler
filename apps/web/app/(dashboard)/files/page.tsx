@@ -38,6 +38,9 @@ import {
   ArrowUpDown,
   Check,
   X,
+  RefreshCw,
+  FileDown,
+  Layers,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { safeFormatDate } from '@/lib/utils';
@@ -137,6 +140,8 @@ export default function FilesPage() {
     setCurrentFolder,
     toggleSelect,
     clearSelection,
+    exportFile,
+    reprocessFile,
   } = useFileStore();
   const { setContextFile, setOpen: setChatOpen } = useChatStore();
   const { t, isRtl } = useLanguageStore();
@@ -692,7 +697,90 @@ export default function FilesPage() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              {/* Sheet tabs for multi-sheet files */}
+              {(() => {
+                const schema = detailFile.schema_snapshot;
+                const sheetNames: string[] = [];
+                if (Array.isArray(schema)) {
+                  const seen = new Set<string>();
+                  (schema as Array<{ sheet?: string }>).forEach((col) => {
+                    if (col.sheet && !seen.has(col.sheet)) {
+                      seen.add(col.sheet);
+                      sheetNames.push(col.sheet);
+                    }
+                  });
+                }
+                if (sheetNames.length > 1) {
+                  return (
+                    <div>
+                      <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1.5">
+                        <Layers className="inline w-3 h-3 me-1" />
+                        {t.files.sheets} ({sheetNames.length})
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {sheetNames.map((name) => (
+                          <Badge key={name} variant="secondary" className="bg-secondary text-zinc-300 text-xs">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Processing log */}
+              {(() => {
+                const fileData = detailFile as FileItem & { processing_log?: string };
+                if (!fileData.processing_log) return null;
+                let log: Array<{ stage: string; status: string; detail?: string }> = [];
+                try {
+                  log = typeof fileData.processing_log === 'string'
+                    ? JSON.parse(fileData.processing_log)
+                    : [];
+                } catch { return null; }
+                if (log.length === 0) return null;
+
+                const stageLabels: Record<string, string> = {
+                  detection: t.files.stageDetection,
+                  parsing: t.files.stageParsing,
+                  schema_inference: t.files.stageSchema,
+                  storage: t.files.stageStorage,
+                };
+
+                // Deduplicate: show only the last entry per stage
+                const lastByStage = new Map<string, typeof log[0]>();
+                log.forEach((entry) => lastByStage.set(entry.stage, entry));
+                const stages = Array.from(lastByStage.values()).filter(e => e.stage !== 'pipeline');
+
+                return (
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1.5">
+                      {t.files.processingLog}
+                    </p>
+                    <div className="space-y-1">
+                      {stages.map((entry, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            entry.status === 'done' ? 'bg-emerald-400' :
+                            entry.status === 'error' ? 'bg-red-400' :
+                            'bg-yellow-400 animate-pulse'
+                          }`} />
+                          <span className="text-zinc-300">
+                            {stageLabels[entry.stage] || entry.stage}
+                          </span>
+                          {entry.detail && (
+                            <span className="text-zinc-500 truncate">{entry.detail}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex flex-wrap gap-2 pt-2">
                 <Button
                   onClick={() => handleAddToChat(detailFile)}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -700,6 +788,48 @@ export default function FilesPage() {
                   <MessageSquare className="h-4 w-4 me-2" />
                   {t.files.addToChat}
                 </Button>
+
+                {detailFile.processing_status === 'ready' && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        const result = await exportFile(detailFile.id, 'csv');
+                        if (result?.downloadUrl) {
+                          window.open(String(result.downloadUrl), '_blank');
+                        }
+                      }}
+                    >
+                      <FileDown className="h-4 w-4 me-2" />
+                      {t.files.exportCsv}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        const result = await exportFile(detailFile.id, 'json');
+                        if (result?.downloadUrl) {
+                          window.open(String(result.downloadUrl), '_blank');
+                        }
+                      }}
+                    >
+                      <FileDown className="h-4 w-4 me-2" />
+                      {t.files.exportJson}
+                    </Button>
+                  </>
+                )}
+
+                {detailFile.processing_status === 'error' && (
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      await reprocessFile(detailFile.id);
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 me-2" />
+                    {t.files.reprocess}
+                  </Button>
+                )}
+
                 <Button
                   variant="destructive"
                   onClick={() => {

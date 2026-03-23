@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     const category = file.file_category as string;
 
-    if (category === 'tabular') {
+    if (category === 'tabular' || category === 'structured_data') {
       const rawTableName = file.db_table_name as string;
       if (!rawTableName) {
         return successResponse({
@@ -36,6 +36,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
           message: 'File has not been processed yet',
         });
       }
+
+      // Optional sheet filter
+      const requestedSheet = req.nextUrl.searchParams.get('sheet');
 
       // Multi-sheet Excel: db_table_name is JSON mapping sheet→table
       let sheetTables: Record<string, string> | null = null;
@@ -47,15 +50,49 @@ export async function GET(req: NextRequest, context: RouteContext) {
         }
       }
 
+      // Parse schema for column type info
+      const schemaSnapshot = safeJsonParse(file.schema_snapshot as string | undefined, []) as Array<{ name: string; inferred_type?: string; sheet?: string }>;
+
       const userDb = getUserDb(user.id);
       try {
+        // If specific sheet requested from a multi-sheet file
+        if (requestedSheet && sheetTables && sheetTables[requestedSheet]) {
+          const tableName = sheetTables[requestedSheet];
+          const rows = userDb.prepare(
+            `SELECT * FROM "${tableName}" LIMIT 200`
+          ).all();
+          const cols = rows.length > 0
+            ? Object.keys(rows[0] as Record<string, unknown>)
+            : [];
+          const total = userDb.prepare(
+            `SELECT COUNT(*) as c FROM "${tableName}"`
+          ).get() as { c: number };
+
+          const colTypes = Object.fromEntries(
+            schemaSnapshot
+              .filter(s => s.sheet === requestedSheet || !s.sheet)
+              .map(s => [s.name, s.inferred_type || 'text'])
+          );
+
+          return successResponse({
+            type: 'tabular',
+            sheetName: requestedSheet,
+            columns: cols,
+            columnTypes: colTypes,
+            rows,
+            totalRows: total?.c ?? rows.length,
+            previewRows: rows.length,
+            sheetNames: Object.keys(sheetTables),
+          });
+        }
+
         if (sheetTables && Object.keys(sheetTables).length > 1) {
           // Multi-sheet: return data from all sheets
           const sheets: Record<string, { columns: string[]; rows: unknown[]; rowCount: number }> = {};
           for (const [sheetName, tableName] of Object.entries(sheetTables)) {
             try {
               const sheetRows = userDb.prepare(
-                `SELECT * FROM "${tableName}" LIMIT 100`
+                `SELECT * FROM "${tableName}" LIMIT 200`
               ).all();
               const cols = sheetRows.length > 0
                 ? Object.keys(sheetRows[0] as Record<string, unknown>)
@@ -77,6 +114,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
             type: 'tabular',
             multiSheet: true,
             sheets,
+            sheetNames: Object.keys(sheetTables),
             totalRows: file.row_count,
           });
         }
@@ -87,16 +125,23 @@ export async function GET(req: NextRequest, context: RouteContext) {
           : rawTableName;
 
         const rows = userDb.prepare(
-          `SELECT * FROM "${tableName}" LIMIT 100`
+          `SELECT * FROM "${tableName}" LIMIT 200`
         ).all();
 
         const columns = rows.length > 0
           ? Object.keys(rows[0] as Record<string, unknown>)
           : [];
 
+        const colTypes = Object.fromEntries(
+          schemaSnapshot
+            .filter(s => !s.sheet)
+            .map(s => [s.name, s.inferred_type || 'text'])
+        );
+
         return successResponse({
           type: 'tabular',
           columns,
+          columnTypes: colTypes,
           rows,
           totalRows: file.row_count,
           previewRows: rows.length,

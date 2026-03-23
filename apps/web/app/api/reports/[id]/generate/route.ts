@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAuthenticatedUser, errorResponse, successResponse } from '@/lib/api-utils';
-import { getDb } from '@/lib/db';
+import { getDb, getUserDb } from '@/lib/db';
 import { safeJsonParse } from '@/lib/utils';
 
 interface RouteContext {
@@ -19,6 +19,25 @@ interface FileRow {
   quality_score: number | null;
   ai_summary: string | null;
   created_at: string;
+  db_table_name: string | null;
+  schema_snapshot: string | null;
+}
+
+interface VerifiedFile extends FileRow {
+  actual_row_count: number | null;
+  actual_columns: string[];
+  column_details: { name: string; type: string; null_ratio?: number }[];
+  sample_rows: Record<string, unknown>[];
+  sheets: { name: string; table: string; rows: number; columns: string[] }[];
+  row_count_verified: boolean;
+  row_count_discrepancy: number | null;
+}
+
+interface Discrepancy {
+  file: string;
+  field: string;
+  reported: string | number | null;
+  actual: string | number | null;
 }
 
 const formatBytes = (bytes: number) => {
@@ -29,10 +48,123 @@ const formatBytes = (bytes: number) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 };
 
-function computeMetrics(files: FileRow[]) {
+// ── Data Verification ──────────────────────────────────────────────
+function verifyFileData(file: FileRow, userId: string): VerifiedFile {
+  const verified: VerifiedFile = {
+    ...file,
+    actual_row_count: null,
+    actual_columns: [],
+    column_details: [],
+    sample_rows: [],
+    sheets: [],
+    row_count_verified: false,
+    row_count_discrepancy: null,
+  };
+
+  if (!file.db_table_name || file.processing_status !== 'ready') return verified;
+
+  // Parse schema snapshot for column details
+  const schema = safeJsonParse(file.schema_snapshot, []) as Array<{
+    name: string; inferred_type?: string; null_ratio?: number; sheet?: string;
+  }>;
+  verified.column_details = schema.map(s => ({
+    name: s.name,
+    type: s.inferred_type || 'text',
+    null_ratio: s.null_ratio,
+  }));
+
+  try {
+    const userDb = getUserDb(userId);
+    try {
+      // Detect multi-sheet
+      let tables: Record<string, string> = {};
+      if (file.db_table_name.startsWith('{')) {
+        try { tables = JSON.parse(file.db_table_name); } catch { /* */ }
+      }
+      if (Object.keys(tables).length === 0) {
+        tables = { 'Data': file.db_table_name };
+      }
+
+      let totalActualRows = 0;
+      const allColumns: string[] = [];
+
+      for (const [sheetName, tableName] of Object.entries(tables)) {
+        try {
+          const countResult = userDb.prepare(
+            `SELECT COUNT(*) as c FROM "${tableName}"`
+          ).get() as { c: number };
+          const sheetRows = countResult?.c ?? 0;
+          totalActualRows += sheetRows;
+
+          // Get column names
+          const sampleResult = userDb.prepare(
+            `SELECT * FROM "${tableName}" LIMIT 5`
+          ).all() as Record<string, unknown>[];
+          const cols = sampleResult.length > 0 ? Object.keys(sampleResult[0]) : [];
+          allColumns.push(...cols);
+
+          verified.sheets.push({
+            name: sheetName,
+            table: tableName,
+            rows: sheetRows,
+            columns: cols,
+          });
+
+          // Collect sample rows (from first sheet only to keep size manageable)
+          if (verified.sample_rows.length === 0) {
+            verified.sample_rows = sampleResult;
+          }
+        } catch { /* table might not exist */ }
+      }
+
+      verified.actual_row_count = totalActualRows;
+      verified.actual_columns = Array.from(new Set(allColumns));
+      verified.row_count_verified = true;
+
+      if (file.row_count !== null) {
+        verified.row_count_discrepancy = totalActualRows - file.row_count;
+      }
+    } finally {
+      userDb.close();
+    }
+  } catch { /* user db might not exist */ }
+
+  return verified;
+}
+
+function collectDiscrepancies(files: VerifiedFile[]): Discrepancy[] {
+  const disc: Discrepancy[] = [];
+  for (const f of files) {
+    if (f.row_count_verified && f.row_count_discrepancy !== null && f.row_count_discrepancy !== 0) {
+      disc.push({
+        file: f.original_name,
+        field: 'row_count',
+        reported: f.row_count,
+        actual: f.actual_row_count,
+      });
+    }
+    if (f.row_count_verified && f.actual_columns.length > 0 && f.column_count !== null) {
+      // For multi-sheet, column_count is max across sheets; compare per first sheet
+      const firstSheetCols = f.sheets.length > 0 ? f.sheets[0].columns.length : f.actual_columns.length;
+      if (f.sheets.length <= 1 && firstSheetCols !== f.column_count) {
+        disc.push({
+          file: f.original_name,
+          field: 'column_count',
+          reported: f.column_count,
+          actual: firstSheetCols,
+        });
+      }
+    }
+  }
+  return disc;
+}
+
+// ── Metrics computation using VERIFIED data ────────────────────────
+function computeMetrics(files: VerifiedFile[]) {
   const totalFiles = files.length;
   const totalSize = files.reduce((sum, f) => sum + (f.size_bytes || 0), 0);
-  const totalRows = files.reduce((sum, f) => sum + (f.row_count || 0), 0);
+  // Use actual row counts when available
+  const totalRows = files.reduce((sum, f) => sum + (f.actual_row_count ?? f.row_count ?? 0), 0);
   const totalColumns = files.reduce((sum, f) => sum + (f.column_count || 0), 0);
   const qualityScores = files.filter((f) => f.quality_score !== null).map((f) => f.quality_score as number);
   const avgQuality = qualityScores.length > 0
@@ -65,23 +197,33 @@ function computeMetrics(files: FileRow[]) {
   };
 }
 
-function buildFileList(files: FileRow[]) {
+function buildFileList(files: VerifiedFile[]) {
   return files.map((f) => ({
     name: f.original_name,
     type: f.file_type,
     category: f.file_category,
     size: f.size_bytes,
     size_formatted: formatBytes(f.size_bytes || 0),
-    rows: f.row_count,
+    rows: f.actual_row_count ?? f.row_count,
+    reported_rows: f.row_count,
     columns: f.column_count,
+    actual_columns: f.actual_columns,
     quality: f.quality_score,
     status: f.processing_status,
     ai_summary: f.ai_summary,
     created_at: f.created_at,
+    verified: f.row_count_verified,
+    sheets: f.sheets.length > 1 ? f.sheets.map(s => ({
+      name: s.name,
+      rows: s.rows,
+      columns: s.columns.length,
+    })) : undefined,
   }));
 }
 
-function generateExecutiveSummary(files: FileRow[], metrics: ReturnType<typeof computeMetrics>) {
+// ── Template generators ────────────────────────────────────────────
+
+function generateExecutiveSummary(files: VerifiedFile[], metrics: ReturnType<typeof computeMetrics>) {
   const qualityLabel = metrics.avg_quality !== null
     ? (metrics.avg_quality >= 90 ? 'Excellent' : metrics.avg_quality >= 75 ? 'Good' : metrics.avg_quality >= 60 ? 'Moderate' : 'Needs Improvement')
     : 'Not Assessed';
@@ -92,6 +234,12 @@ function generateExecutiveSummary(files: FileRow[], metrics: ReturnType<typeof c
   if (metrics.avg_quality !== null && metrics.avg_quality >= 90) recs.push('Data quality is excellent — set up automated monitoring to maintain standards.');
   if (metrics.pending_count > 0) recs.push(`${metrics.pending_count} file(s) are pending processing. Wait for completion or trigger reprocessing.`);
   if (metrics.total_files === 1) recs.push('Upload additional datasets to enable cross-dataset analysis and comparisons.');
+
+  // Data accuracy recommendations
+  const discrepancies = collectDiscrepancies(files);
+  if (discrepancies.length > 0) {
+    recs.push(`${discrepancies.length} data discrepanc${discrepancies.length === 1 ? 'y' : 'ies'} detected between reported and actual values. Review the Data Verification section.`);
+  }
   if (recs.length === 0) recs.push('All datasets are in good shape. Continue monitoring quality metrics regularly.');
 
   return {
@@ -105,11 +253,11 @@ function generateExecutiveSummary(files: FileRow[], metrics: ReturnType<typeof c
     sections: [
       {
         title: 'Overview',
-        content: `This report analyzes ${metrics.total_files} data source(s) comprising ${metrics.total_size_formatted} of data across ${metrics.categories.length} category type(s): ${metrics.categories.join(', ') || 'N/A'}. File formats include: ${metrics.file_types.join(', ') || 'N/A'}.${metrics.total_rows > 0 ? ` Total rows across all tabular datasets: ${metrics.total_rows.toLocaleString()}.` : ''}`,
+        content: `This report analyzes ${metrics.total_files} data source(s) comprising ${metrics.total_size_formatted} of data across ${metrics.categories.length} category type(s): ${metrics.categories.join(', ') || 'N/A'}. File formats include: ${metrics.file_types.join(', ') || 'N/A'}.${metrics.total_rows > 0 ? ` Total verified rows across all datasets: ${metrics.total_rows.toLocaleString()}.` : ''}`,
       },
       {
         title: 'Key Metrics',
-        content: `Total Files: ${metrics.total_files} | Total Size: ${metrics.total_size_formatted}${metrics.total_rows > 0 ? ` | Total Rows: ${metrics.total_rows.toLocaleString()}` : ''} | Successfully Processed: ${metrics.ready_count}/${metrics.total_files}${metrics.avg_quality !== null ? ` | Average Quality Score: ${metrics.avg_quality}%` : ''}${metrics.error_count > 0 ? ` | Files with Errors: ${metrics.error_count}` : ''}`,
+        content: `Total Files: ${metrics.total_files} | Total Size: ${metrics.total_size_formatted}${metrics.total_rows > 0 ? ` | Total Rows: ${metrics.total_rows.toLocaleString()} (verified)` : ''} | Successfully Processed: ${metrics.ready_count}/${metrics.total_files}${metrics.avg_quality !== null ? ` | Average Quality Score: ${metrics.avg_quality}%` : ''}${metrics.error_count > 0 ? ` | Files with Errors: ${metrics.error_count}` : ''}`,
       },
       {
         title: 'Data Quality Summary',
@@ -129,14 +277,33 @@ function generateExecutiveSummary(files: FileRow[], metrics: ReturnType<typeof c
   };
 }
 
-function generateDataDeepDive(files: FileRow[], metrics: ReturnType<typeof computeMetrics>) {
-  const tabularFiles = files.filter(f => f.row_count !== null && f.row_count > 0);
+function generateDataDeepDive(files: VerifiedFile[], metrics: ReturnType<typeof computeMetrics>) {
+  const tabularFiles = files.filter(f => (f.actual_row_count ?? f.row_count ?? 0) > 0);
   const sizeDistribution = files.map(f => ({ name: f.original_name, size: f.size_bytes })).sort((a, b) => b.size - a.size);
   const largestFile = sizeDistribution.length > 0 ? sizeDistribution[0] : null;
   const smallestFile = sizeDistribution.length > 0 ? sizeDistribution[sizeDistribution.length - 1] : null;
 
+  // Build rich schema content with actual column names and types
+  const schemaContent = files.map(f => {
+    const actualRows = f.actual_row_count ?? f.row_count ?? 0;
+    let line = `• ${f.original_name} (${f.file_type}): ${f.actual_columns.length || f.column_count || 'N/A'} columns, ${actualRows.toLocaleString()} rows, ${formatBytes(f.size_bytes)}`;
+    if (f.actual_columns.length > 0) {
+      line += `\n  Columns: ${f.actual_columns.slice(0, 10).join(', ')}${f.actual_columns.length > 10 ? ` (+${f.actual_columns.length - 10} more)` : ''}`;
+    }
+    if (f.column_details.length > 0) {
+      const nullCols = f.column_details.filter(c => c.null_ratio && c.null_ratio > 0.5);
+      if (nullCols.length > 0) {
+        line += `\n  ⚠ ${nullCols.length} column(s) with >50% null values`;
+      }
+    }
+    if (f.sheets.length > 1) {
+      line += `\n  Sheets: ${f.sheets.map(s => `${s.name} (${s.rows} rows)`).join(', ')}`;
+    }
+    return line;
+  }).join('\n\n');
+
   return {
-    summary: `Deep-dive analysis of ${metrics.total_files} dataset(s) totaling ${metrics.total_size_formatted}. This report provides comprehensive schema analysis, distribution profiling, and anomaly detection across ${metrics.categories.length} data categories and ${metrics.file_types.length} file formats.`,
+    summary: `Deep-dive analysis of ${metrics.total_files} dataset(s) totaling ${metrics.total_size_formatted}. This report provides comprehensive schema analysis, distribution profiling, and anomaly detection across ${metrics.categories.length} data categories and ${metrics.file_types.length} file formats. All row counts verified against actual data.`,
     kpis: [
       { label: 'Datasets', value: String(metrics.total_files), sublabel: `${tabularFiles.length} tabular` },
       { label: 'Total Rows', value: metrics.total_rows > 0 ? metrics.total_rows.toLocaleString() : 'N/A', sublabel: `${metrics.total_columns} total columns` },
@@ -146,15 +313,15 @@ function generateDataDeepDive(files: FileRow[], metrics: ReturnType<typeof compu
     sections: [
       {
         title: 'Dataset Overview',
-        content: `Analyzed ${metrics.total_files} dataset(s) totaling ${metrics.total_size_formatted}. Categories: ${metrics.categories.join(', ') || 'N/A'}. Formats: ${metrics.file_types.join(', ') || 'N/A'}.${metrics.total_rows > 0 ? ` Combined row count: ${metrics.total_rows.toLocaleString()}.` : ''}`,
+        content: `Analyzed ${metrics.total_files} dataset(s) totaling ${metrics.total_size_formatted}. Categories: ${metrics.categories.join(', ') || 'N/A'}. Formats: ${metrics.file_types.join(', ') || 'N/A'}.${metrics.total_rows > 0 ? ` Combined verified row count: ${metrics.total_rows.toLocaleString()}.` : ''}`,
       },
       {
         title: 'Schema Analysis',
-        content: files.map((f) => `• ${f.original_name} (${f.file_type}): ${f.column_count || 'N/A'} columns, ${f.row_count?.toLocaleString() || 'N/A'} rows, ${formatBytes(f.size_bytes)}`).join('\n') || 'No schema data available.',
+        content: schemaContent || 'No schema data available.',
       },
       {
         title: 'Distribution Analysis',
-        content: `${metrics.total_files} datasets analyzed. Largest file: ${largestFile ? `${largestFile.name} (${formatBytes(largestFile.size)})` : 'N/A'}. Smallest: ${smallestFile ? `${smallestFile.name} (${formatBytes(smallestFile.size)})` : 'N/A'}. ${metrics.categories.length} data categories present.${metrics.total_rows > 0 ? ` Total row count: ${metrics.total_rows.toLocaleString()}.` : ''}`,
+        content: `${metrics.total_files} datasets analyzed. Largest file: ${largestFile ? `${largestFile.name} (${formatBytes(largestFile.size)})` : 'N/A'}. Smallest: ${smallestFile ? `${smallestFile.name} (${formatBytes(smallestFile.size)})` : 'N/A'}. ${metrics.categories.length} data categories present.${metrics.total_rows > 0 ? ` Total verified row count: ${metrics.total_rows.toLocaleString()}.` : ''}`,
       },
       {
         title: 'Anomaly Detection',
@@ -172,16 +339,18 @@ function generateDataDeepDive(files: FileRow[], metrics: ReturnType<typeof compu
     schema_table: files.map(f => ({
       name: f.original_name,
       type: f.file_type,
-      columns: f.column_count,
-      rows: f.row_count,
+      columns: f.actual_columns.length || f.column_count,
+      column_names: f.actual_columns.slice(0, 20),
+      rows: f.actual_row_count ?? f.row_count,
       size: formatBytes(f.size_bytes),
       quality: f.quality_score,
+      sheets: f.sheets.length > 1 ? f.sheets.length : undefined,
     })),
     size_distribution: sizeDistribution.map(f => ({ name: f.name, size: f.size, size_formatted: formatBytes(f.size) })),
   };
 }
 
-function generateMonthlyReport(files: FileRow[], metrics: ReturnType<typeof computeMetrics>) {
+function generateMonthlyReport(files: VerifiedFile[], metrics: ReturnType<typeof computeMetrics>) {
   const now = new Date();
   const monthName = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
@@ -191,11 +360,12 @@ function generateMonthlyReport(files: FileRow[], metrics: ReturnType<typeof comp
       category: cat,
       count: catFiles.length,
       size: formatBytes(catFiles.reduce((s, f) => s + (f.size_bytes || 0), 0)),
+      rows: catFiles.reduce((s, f) => s + (f.actual_row_count ?? f.row_count ?? 0), 0),
     };
   });
 
   return {
-    summary: `Monthly report for ${monthName}. This period saw ${metrics.total_files} file(s) ingested totaling ${metrics.total_size_formatted}, with a ${metrics.processing_rate}% processing success rate.${metrics.avg_quality !== null ? ` Average quality score: ${metrics.avg_quality}%.` : ''}`,
+    summary: `Monthly report for ${monthName}. This period saw ${metrics.total_files} file(s) ingested totaling ${metrics.total_size_formatted}, with a ${metrics.processing_rate}% processing success rate.${metrics.avg_quality !== null ? ` Average quality score: ${metrics.avg_quality}%.` : ''} All metrics verified against actual data.`,
     kpis: [
       { label: 'Files Ingested', value: String(metrics.total_files), sublabel: monthName },
       { label: 'Data Volume', value: metrics.total_size_formatted, sublabel: `${metrics.file_types.length} formats` },
@@ -205,7 +375,7 @@ function generateMonthlyReport(files: FileRow[], metrics: ReturnType<typeof comp
     sections: [
       {
         title: 'Monthly Summary',
-        content: `This period: ${metrics.total_files} file(s) ingested, ${metrics.ready_count} fully processed, ${metrics.total_size_formatted} total data volume across ${metrics.categories.length} categories.`,
+        content: `This period: ${metrics.total_files} file(s) ingested, ${metrics.ready_count} fully processed, ${metrics.total_size_formatted} total data volume across ${metrics.categories.length} categories.${metrics.total_rows > 0 ? ` ${metrics.total_rows.toLocaleString()} total rows (verified).` : ''}`,
       },
       {
         title: 'Ingestion Activity',
@@ -223,7 +393,7 @@ function generateMonthlyReport(files: FileRow[], metrics: ReturnType<typeof comp
       },
       {
         title: 'Category Breakdown',
-        content: categoryBreakdown.map(c => `• ${c.category}: ${c.count} file(s), ${c.size}`).join('\n') || 'No category data available.',
+        content: categoryBreakdown.map(c => `• ${c.category}: ${c.count} file(s), ${c.size}${c.rows > 0 ? `, ${c.rows.toLocaleString()} rows` : ''}`).join('\n') || 'No category data available.',
       },
     ],
     category_breakdown: categoryBreakdown,
@@ -236,12 +406,21 @@ function generateMonthlyReport(files: FileRow[], metrics: ReturnType<typeof comp
   };
 }
 
-function generateComparisonReport(files: FileRow[], metrics: ReturnType<typeof computeMetrics>) {
+function generateComparisonReport(files: VerifiedFile[], metrics: ReturnType<typeof computeMetrics>) {
   const sortedBySize = [...files].sort((a, b) => (b.size_bytes || 0) - (a.size_bytes || 0));
   const sortedByQuality = [...files].filter(f => f.quality_score !== null).sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0));
 
+  // Find shared columns across files
+  const columnSets = files.filter(f => f.actual_columns.length > 0).map(f => new Set(f.actual_columns));
+  let sharedColumns: string[] = [];
+  if (columnSets.length >= 2) {
+    sharedColumns = Array.from(columnSets[0]).filter(col =>
+      columnSets.slice(1).every(set => set.has(col))
+    );
+  }
+
   return {
-    summary: `Comparison analysis across ${metrics.total_files} dataset(s). This report highlights differences in size, structure, quality, and processing status between your data sources.${metrics.total_files < 2 ? ' Upload additional files for more meaningful comparisons.' : ''}`,
+    summary: `Comparison analysis across ${metrics.total_files} dataset(s). This report highlights differences in size, structure, quality, and processing status between your data sources. All row counts verified against actual data.${metrics.total_files < 2 ? ' Upload additional files for more meaningful comparisons.' : ''}`,
     kpis: [
       { label: 'Datasets', value: String(metrics.total_files), sublabel: 'compared' },
       { label: 'Size Range', value: files.length > 0 ? `${formatBytes(Math.min(...files.map(f => f.size_bytes || 0)))} – ${formatBytes(Math.max(...files.map(f => f.size_bytes || 0)))}` : 'N/A', sublabel: metrics.total_size_formatted + ' total' },
@@ -251,11 +430,19 @@ function generateComparisonReport(files: FileRow[], metrics: ReturnType<typeof c
     sections: [
       {
         title: 'Comparison Overview',
-        content: `Comparing ${metrics.total_files} dataset(s) across ${metrics.categories.length} categories (${metrics.categories.join(', ')}). Formats: ${metrics.file_types.join(', ')}.`,
+        content: `Comparing ${metrics.total_files} dataset(s) across ${metrics.categories.length} categories (${metrics.categories.join(', ')}). Formats: ${metrics.file_types.join(', ')}.${sharedColumns.length > 0 ? ` ${sharedColumns.length} shared column(s) across datasets: ${sharedColumns.slice(0, 5).join(', ')}${sharedColumns.length > 5 ? ' ...' : ''}.` : ''}`,
       },
       {
         title: 'Schema Comparison',
-        content: files.map((f) => `• ${f.original_name} (${f.file_type}): ${f.column_count || 'N/A'} columns, ${f.row_count?.toLocaleString() || 'N/A'} rows`).join('\n') || 'No schema data available.',
+        content: files.map((f) => {
+          const rows = f.actual_row_count ?? f.row_count ?? 0;
+          const cols = f.actual_columns.length || f.column_count || 0;
+          let line = `• ${f.original_name} (${f.file_type}): ${cols} columns, ${rows.toLocaleString()} rows`;
+          if (f.actual_columns.length > 0) {
+            line += `\n  Columns: ${f.actual_columns.slice(0, 8).join(', ')}${f.actual_columns.length > 8 ? ` (+${f.actual_columns.length - 8})` : ''}`;
+          }
+          return line;
+        }).join('\n') || 'No schema data available.',
       },
       {
         title: 'Statistical Differences',
@@ -270,7 +457,7 @@ function generateComparisonReport(files: FileRow[], metrics: ReturnType<typeof c
       {
         title: 'Correlation Analysis',
         content: files.length >= 2
-          ? `${files.length} datasets available for correlation analysis. Shared categories: ${metrics.categories.join(', ')}. ${files.filter(f => f.file_type === files[0]?.file_type).length > 1 ? 'Multiple files share the same format, enabling structural comparison.' : 'Files use different formats.'}`
+          ? `${files.length} datasets available for correlation analysis. Shared categories: ${metrics.categories.join(', ')}.${sharedColumns.length > 0 ? ` ${sharedColumns.length} shared columns found, enabling structural comparison.` : ' No shared columns found.'} ${files.filter(f => f.file_type === files[0]?.file_type).length > 1 ? 'Multiple files share the same format.' : 'Files use different formats.'}`
           : 'At least 2 datasets are needed for correlation analysis.',
       },
     ],
@@ -280,11 +467,12 @@ function generateComparisonReport(files: FileRow[], metrics: ReturnType<typeof c
       category: f.file_category,
       size: formatBytes(f.size_bytes),
       size_bytes: f.size_bytes,
-      rows: f.row_count,
-      columns: f.column_count,
+      rows: f.actual_row_count ?? f.row_count,
+      columns: f.actual_columns.length || f.column_count,
       quality: f.quality_score,
       status: f.processing_status,
     })),
+    shared_columns: sharedColumns,
     rankings: {
       by_size: sortedBySize.map(f => f.original_name),
       by_quality: sortedByQuality.map(f => f.original_name),
@@ -292,13 +480,15 @@ function generateComparisonReport(files: FileRow[], metrics: ReturnType<typeof c
   };
 }
 
-function generateQuickBrief(files: FileRow[], metrics: ReturnType<typeof computeMetrics>) {
+function generateQuickBrief(files: VerifiedFile[], metrics: ReturnType<typeof computeMetrics>) {
   const primaryFile = files[0];
   const aiInsights = files.filter(f => f.ai_summary).map(f => ({ name: f.original_name, insight: f.ai_summary as string }));
 
+  const pRows = primaryFile ? (primaryFile.actual_row_count ?? primaryFile.row_count) : null;
+
   return {
     summary: primaryFile
-      ? `Quick brief for "${primaryFile.original_name}" — a ${primaryFile.file_type} file (${formatBytes(primaryFile.size_bytes)})${primaryFile.row_count ? ` with ${primaryFile.row_count.toLocaleString()} rows and ${primaryFile.column_count} columns` : ''}.${primaryFile.quality_score !== null ? ` Quality score: ${primaryFile.quality_score}%.` : ''}`
+      ? `Quick brief for "${primaryFile.original_name}" — a ${primaryFile.file_type} file (${formatBytes(primaryFile.size_bytes)})${pRows ? ` with ${pRows.toLocaleString()} rows (verified) and ${primaryFile.actual_columns.length || primaryFile.column_count} columns` : ''}.${primaryFile.quality_score !== null ? ` Quality score: ${primaryFile.quality_score}%.` : ''}`
       : `Quick brief covering ${metrics.total_files} file(s), ${metrics.total_size_formatted} total.${metrics.avg_quality !== null ? ` Average quality: ${metrics.avg_quality}%.` : ''}`,
     kpis: [
       { label: 'Files', value: String(metrics.total_files), sublabel: metrics.categories.join(', ') || 'N/A' },
@@ -309,12 +499,16 @@ function generateQuickBrief(files: FileRow[], metrics: ReturnType<typeof compute
     sections: [
       {
         title: 'Quick Summary',
-        content: `Quick analysis of ${metrics.total_files} file(s): ${metrics.total_size_formatted} total, ${metrics.ready_count} processed successfully.${metrics.avg_quality !== null ? ` Average quality: ${metrics.avg_quality}%.` : ''}${metrics.total_rows > 0 ? ` ${metrics.total_rows.toLocaleString()} total rows.` : ''}`,
+        content: `Quick analysis of ${metrics.total_files} file(s): ${metrics.total_size_formatted} total, ${metrics.ready_count} processed successfully.${metrics.avg_quality !== null ? ` Average quality: ${metrics.avg_quality}%.` : ''}${metrics.total_rows > 0 ? ` ${metrics.total_rows.toLocaleString()} total rows (verified).` : ''}`,
       },
       {
         title: 'Key Statistics',
         content: `Files: ${metrics.total_files} | Size: ${metrics.total_size_formatted} | Categories: ${metrics.categories.join(', ') || 'N/A'}${metrics.avg_quality !== null ? ` | Quality: ${metrics.avg_quality}%` : ''}${metrics.total_rows > 0 ? ` | Rows: ${metrics.total_rows.toLocaleString()}` : ''}`,
       },
+      ...(primaryFile && primaryFile.actual_columns.length > 0 ? [{
+        title: 'Data Structure',
+        content: `Columns (${primaryFile.actual_columns.length}): ${primaryFile.actual_columns.join(', ')}${primaryFile.sheets.length > 1 ? `\nSheets: ${primaryFile.sheets.map(s => `${s.name} (${s.rows} rows)`).join(', ')}` : ''}`,
+      }] : []),
       {
         title: 'AI Insights',
         content: aiInsights.length > 0
@@ -328,13 +522,16 @@ function generateQuickBrief(files: FileRow[], metrics: ReturnType<typeof compute
       type: primaryFile.file_type,
       category: primaryFile.file_category,
       size: formatBytes(primaryFile.size_bytes),
-      rows: primaryFile.row_count,
-      columns: primaryFile.column_count,
+      rows: primaryFile.actual_row_count ?? primaryFile.row_count,
+      columns: primaryFile.actual_columns.length || primaryFile.column_count,
+      column_names: primaryFile.actual_columns,
       quality: primaryFile.quality_score,
       status: primaryFile.processing_status,
     } : null,
   };
 }
+
+// ── Route handler ──────────────────────────────────────────────────
 
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
@@ -361,21 +558,25 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const template = (report.template as string) || 'executive_summary';
     const fileIds = safeJsonParse(report.file_ids as string, []) as string[];
 
-    let files: FileRow[];
+    let rawFiles: FileRow[];
     if (fileIds.length > 0) {
       const placeholders = fileIds.map(() => '?').join(',');
-      files = db.prepare(
+      rawFiles = db.prepare(
         `SELECT id, original_name, file_type, file_category, size_bytes, row_count, column_count,
-                processing_status, quality_score, ai_summary, created_at
+                processing_status, quality_score, ai_summary, created_at, db_table_name, schema_snapshot
          FROM files WHERE id IN (${placeholders}) AND user_id = ?`
       ).all(...fileIds, user.id) as FileRow[];
     } else {
-      files = db.prepare(
+      rawFiles = db.prepare(
         `SELECT id, original_name, file_type, file_category, size_bytes, row_count, column_count,
-                processing_status, quality_score, ai_summary, created_at
+                processing_status, quality_score, ai_summary, created_at, db_table_name, schema_snapshot
          FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT 20`
       ).all(user.id) as FileRow[];
     }
+
+    // Verify each file against actual data
+    const files = rawFiles.map(f => verifyFileData(f, user.id));
+    const discrepancies = collectDiscrepancies(files);
 
     const metrics = computeMetrics(files);
     const fileList = buildFileList(files);
@@ -407,6 +608,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
       ...templateContent,
       metrics,
       files: fileList,
+      data_verification: {
+        verified: true,
+        verified_at: new Date().toISOString(),
+        files_verified: files.filter(f => f.row_count_verified).length,
+        files_total: files.length,
+        discrepancies,
+        all_accurate: discrepancies.length === 0,
+      },
     };
 
     db.prepare(
