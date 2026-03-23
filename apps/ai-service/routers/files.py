@@ -346,6 +346,34 @@ async def upload_and_process(
     return {"status": "processing", "file_id": file_id}
 
 
+@router.post("/extract-text")
+async def extract_text(
+    file: UploadFile = File(...),
+    original_name: str = Form(""),
+):
+    """Extract text content from a document file (PDF, DOCX, TXT, etc.)."""
+    import tempfile
+    ext = os.path.splitext(original_name or file.filename or "")[1].lower()
+    content = await file.read()
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        from agents.document_processor import DocumentProcessorAgent
+        processor = DocumentProcessorAgent()
+        result = await processor.process_file(tmp_path)
+        return {
+            "text": result.get("text", ""),
+            "pages": result.get("pages", []),
+            "page_count": result.get("page_count", 0),
+            "char_count": result.get("char_count", 0),
+        }
+    finally:
+        os.unlink(tmp_path)
+
+
 @router.get("/status/{file_id}")
 async def get_status(file_id: str):
     """Get processing status for a file."""

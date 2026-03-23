@@ -111,27 +111,32 @@ export async function GET(req: NextRequest, context: RouteContext) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ct), 'Comparison');
     }
 
-    // ── 5. ACTUAL SOURCE DATA — the main addition ────────────────
-    // For each file in the report, query the real data from user_data.db
-    let files: { id: string; original_name: string; db_table_name: string | null }[] = [];
+    // ── 5. ACTUAL SOURCE DATA — tabular + document text ─────────
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+
+    let files: { id: string; original_name: string; db_table_name: string | null; file_category: string; stored_path: string | null }[] = [];
     if (fileIds.length > 0) {
       const placeholders = fileIds.map(() => '?').join(',');
       files = db.prepare(
-        `SELECT id, original_name, db_table_name FROM files WHERE id IN (${placeholders}) AND user_id = ?`
+        `SELECT id, original_name, db_table_name, file_category, stored_path FROM files WHERE id IN (${placeholders}) AND user_id = ?`
       ).all(...fileIds, user.id) as typeof files;
     } else {
       files = db.prepare(
-        `SELECT id, original_name, db_table_name FROM files WHERE user_id = ? AND processing_status = 'ready' ORDER BY created_at DESC LIMIT 20`
+        `SELECT id, original_name, db_table_name, file_category, stored_path FROM files WHERE user_id = ? AND processing_status = 'ready' ORDER BY created_at DESC LIMIT 20`
       ).all(user.id) as typeof files;
     }
 
     if (files.length > 0) {
-      const userDb = getUserDb(user.id);
+      let userDb: ReturnType<typeof getUserDb> | null = null;
       try {
-        for (const file of files) {
-          if (!file.db_table_name) continue;
+        userDb = getUserDb(user.id);
+      } catch { /* user db might not exist */ }
 
-          // Parse multi-sheet mapping
+      for (const file of files) {
+        const baseName = file.original_name.replace(/\.[^.]+$/, '');
+
+        // ── Tabular files: query actual data rows ──
+        if (file.db_table_name && userDb) {
           let tables: Record<string, string> = {};
           if (file.db_table_name.startsWith('{')) {
             try { tables = JSON.parse(file.db_table_name); } catch { /* */ }
@@ -145,39 +150,84 @@ export async function GET(req: NextRequest, context: RouteContext) {
               const rows = userDb.prepare(
                 `SELECT * FROM "${tableName}" LIMIT 10000`
               ).all() as Record<string, unknown>[];
-
               if (rows.length === 0) continue;
 
-              // Build sheet name: "filename - sheetname" (max 31 chars for Excel)
-              const baseName = file.original_name.replace(/\.[^.]+$/, '');
               let wsName = Object.keys(tables).length > 1
                 ? `${baseName} - ${sheetName}`
                 : baseName;
-              // Excel sheet names max 31 chars, no special chars
-              wsName = wsName
-                .replace(/[\\/*?[\]:]/g, '')
-                .slice(0, 31);
-              // Avoid duplicate sheet names
+              wsName = wsName.replace(/[\\/*?[\]:]/g, '').slice(0, 31);
               let finalName = wsName;
-              let counter = 1;
+              let ctr = 1;
               while (wb.SheetNames.includes(finalName)) {
-                finalName = `${wsName.slice(0, 28)}_${counter}`;
-                counter++;
+                finalName = `${wsName.slice(0, 28)}_${ctr}`;
+                ctr++;
               }
+              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), finalName);
+            } catch { /* table might not exist */ }
+          }
+          continue;
+        }
 
-              XLSX.utils.book_append_sheet(
-                wb,
-                XLSX.utils.json_to_sheet(rows),
-                finalName
-              );
-            } catch {
-              // table might not exist
+        // ── Document files: extract text via AI service ──
+        if (file.file_category === 'document' && file.stored_path) {
+          try {
+            const fs = await import('fs');
+            const filePath = file.stored_path;
+            if (!fs.existsSync(filePath)) continue;
+
+            const fileBuffer = fs.readFileSync(filePath);
+            const formData = new FormData();
+            formData.append('file', new Blob([fileBuffer]), file.original_name);
+            formData.append('original_name', file.original_name);
+
+            const res = await fetch(`${AI_SERVICE_URL}/api/files/extract-text`, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              const text = data.text || '';
+              const pages = data.pages as { page: number; text: string }[] || [];
+
+              if (pages.length > 0) {
+                // One row per page
+                const pageRows = pages.map((p: { page: number; text: string }) => ({
+                  Page: p.page,
+                  Content: p.text,
+                }));
+                let wsName = baseName.replace(/[\\/*?[\]:]/g, '').slice(0, 31);
+                let finalName = wsName;
+                let ctr = 1;
+                while (wb.SheetNames.includes(finalName)) {
+                  finalName = `${wsName.slice(0, 28)}_${ctr}`;
+                  ctr++;
+                }
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pageRows), finalName);
+              } else if (text) {
+                // Single text block — split into rows of ~1000 chars
+                const chunks: string[] = [];
+                for (let i = 0; i < text.length; i += 1000) {
+                  chunks.push(text.slice(i, i + 1000));
+                }
+                const textRows = chunks.map((c: string, i: number) => ({ Section: i + 1, Content: c }));
+                let wsName = baseName.replace(/[\\/*?[\]:]/g, '').slice(0, 31);
+                let finalName = wsName;
+                let ctr = 1;
+                while (wb.SheetNames.includes(finalName)) {
+                  finalName = `${wsName.slice(0, 28)}_${ctr}`;
+                  ctr++;
+                }
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(textRows), finalName);
+              }
             }
+          } catch {
+            // extraction failed — skip
           }
         }
-      } finally {
-        userDb.close();
       }
+
+      if (userDb) userDb.close();
     }
 
     // ── Generate buffer and return ───────────────────────────────
