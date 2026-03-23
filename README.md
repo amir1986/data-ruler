@@ -2,21 +2,21 @@
 
 A self-hosted, AI-powered data management and analytics platform. Upload any file type, get automatic processing, interactive dashboards, AI-generated reports, and chat with an AI assistant that understands your data.
 
-**Cloud-only LLM inference** — no local GPU required. Uses free-tier cloud APIs (Groq, OpenRouter, HuggingFace) or Ollama Cloud.
+Deployed on **Oracle Cloud Always-Free Tier** — 4 ARM CPUs, 24GB RAM, 200GB disk, forever free. Uses **Ollama Cloud** for AI inference — no local GPU required.
 
 ## Features
 
 - **Universal File Upload** — Drag & drop any file: CSV, Excel, PDF, JSON, databases, images, audio, video, archives, and 100+ more formats
 - **Automatic Processing** — Files are detected, parsed, profiled, and stored in the optimal database engine
 - **Smart Dashboards** — Auto-generated charts and insights, plus a drag-and-drop dashboard builder with chart, KPI, table, and text widgets
-- **AI-Powered Reports** — Generate professional reports from your data using 5 templates (Executive Summary, Data Deep-Dive, Monthly Report, Comparison Report, Quick Brief) with real data-driven analysis
+- **AI-Powered Reports** — Generate professional reports from your data using 5 templates (Executive Summary, Data Deep-Dive, Monthly Report, Comparison Report, Quick Brief)
 - **AI Chat Assistant** — Full-page chat interface with rich content rendering: SQL syntax highlighting, comparative bar charts, metric highlighting, and conversation history
 - **Multi-Agent Architecture** — 20 specialized AI agents with input/output contracts, execution metrics, dispatch timeouts, and dead letter tracking
 - **File Manager** — Visual file browser with thumbnails, tags, search, and database/archive browsing
 - **Notes System** — Markdown notes with auto-save, linked to files or standalone
 - **Export** — Export dashboards and reports as JSON, export data as CSV, JSON, XLSX
 - **Settings** — Profile management, AI model configuration, server-side storage monitoring, and bulk file reprocessing
-- **Privacy First** — All data stays on your server. LLM calls go to free cloud APIs (Groq/OpenRouter/HuggingFace/Ollama Cloud)
+- **Privacy First** — All data stays on your server. LLM calls go to Ollama Cloud
 
 ## Tech Stack
 
@@ -27,108 +27,32 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 | State | Zustand |
 | Backend API | Next.js API Routes (BFF) + Python FastAPI (AI Service) |
 | Database | SQLite (catalog + user data), DuckDB (OLAP analytics) |
-| AI / LLM | Groq (free), OpenRouter (free), HuggingFace Inference API (free), Ollama Cloud |
-| Embeddings | HuggingFace sentence-transformers |
+| AI / LLM | Ollama Cloud (gemini-3-flash-preview) |
 | Auth | JWT + bcrypt, cookie-based sessions |
-| Deployment | Docker Compose, Fly.io (free), Oracle Cloud (free) |
+| Deployment | Docker Compose, Oracle Cloud Always-Free Tier, Caddy (HTTPS) |
 
-## Quick Start
+## Quick Start (Local)
 
 ```bash
 git clone <repo-url>
 cd data-ruler
 cp .env.example .env
-# Edit .env — add at least one API key (GROQ_API_KEY, OPENROUTER_API_KEY, HF_API_TOKEN, or OLLAMA_CLOUD_API_KEY)
+# Edit .env — add your Ollama Cloud API key
+nano .env
 docker compose up --build -d
 ```
 
 Open http://localhost:3000 and create an account.
 
-Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), [HuggingFace](https://huggingface.co/settings/tokens), or use an [Ollama](https://ollama.com/) cloud API key.
+## Deploy to Oracle Cloud Always-Free Tier ($0 Forever)
 
-## Deploy to Production (Free — $0)
+Oracle Cloud offers an **always-free** ARM VM with 4 CPUs, 24GB RAM, and 200GB disk — permanently, no time limit. You run Docker Compose on the VM with Caddy for automatic HTTPS.
 
-Two free deployment options. Both give you HTTPS, a public URL, and persistent storage for your databases.
-
-### Option A: Fly.io (Easiest — free tier, no server to manage)
-
-[Fly.io](https://fly.io) runs your Docker containers on their infrastructure. Free tier includes 3 shared VMs with 256MB RAM each and 1GB persistent volumes — enough for both services. Services auto-start on incoming requests and auto-stop when idle (no cold start penalty like Render).
-
-**Prerequisites:** A free Fly.io account and the `flyctl` CLI.
-
-**Step 1 — Install the Fly CLI**
-
-```bash
-# macOS / Linux
-curl -L https://fly.io/install.sh | sh
-
-# Windows (PowerShell)
-powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
-```
-
-**Step 2 — Sign up and log in**
-
-```bash
-fly auth signup    # Creates a free account (or use: fly auth login)
-```
-
-**Step 3 — Deploy the AI service first**
-
-```bash
-cd data-ruler
-
-# Launch the Python AI service
-fly launch --config fly.ai-service.toml --no-deploy
-fly volumes create ai_service_data --size 1 --region iad --yes -a data-ruler-ai
-
-# Set your LLM API key (get a free one at https://console.groq.com/keys)
-fly secrets set GROQ_API_KEY=gsk_your_key_here -a data-ruler-ai
-
-# Deploy
-fly deploy --config fly.ai-service.toml
-```
-
-Note the URL printed at the end (e.g., `https://data-ruler-ai.fly.dev`).
-
-**Step 4 — Deploy the web app**
-
-```bash
-# Launch the Next.js web app
-fly launch --config fly.toml --no-deploy
-fly volumes create data_ruler_data --size 1 --region iad --yes -a data-ruler-web
-
-# Set secrets (replace the AI_SERVICE_URL with your actual AI service URL from Step 3)
-fly secrets set \
-  NEXTAUTH_SECRET=$(openssl rand -base64 32) \
-  NEXTAUTH_URL=https://data-ruler-web.fly.dev \
-  AI_SERVICE_URL=https://data-ruler-ai.fly.dev \
-  -a data-ruler-web
-
-# Deploy
-fly deploy --config fly.toml
-```
-
-**Step 5 — Open your app**
-
-```bash
-fly open -a data-ruler-web
-```
-
-Your app is live at `https://data-ruler-web.fly.dev` with persistent SQLite/DuckDB storage.
-
-> **Free tier includes:** 3 shared-cpu VMs (256MB each), 1GB persistent volumes, automatic HTTPS, auto-start/stop. No credit card required to start.
-
----
-
-### Option B: Oracle Cloud Always Free (Best specs — 24GB RAM, forever free)
-
-[Oracle Cloud](https://cloud.oracle.com) offers an **always-free** ARM VM with 4 CPUs, 24GB RAM, and 200GB disk — permanently, no time limit. This is the best free option for production use. You run Docker Compose on the VM, just like localhost but publicly accessible.
-
-**Step 1 — Create a free Oracle Cloud account**
+### Step 1 — Create a free Oracle Cloud account
 
 Go to [cloud.oracle.com/free](https://www.oracle.com/cloud/free/) and sign up. A credit card is required for identity verification but **you will not be charged** — the Always Free tier is permanent and separate from any trial credits.
 
-**Step 2 — Create an Always Free VM**
+### Step 2 — Create an Always Free VM
 
 1. In the Oracle Cloud Console, go to **Compute → Instances → Create Instance**
 2. Configure:
@@ -139,7 +63,7 @@ Go to [cloud.oracle.com/free](https://www.oracle.com/cloud/free/) and sign up. A
 3. Click **Create** and wait for the instance to be "Running"
 4. Copy the **Public IP address** from the instance details page
 
-**Step 3 — Open firewall ports**
+### Step 3 — Open firewall ports
 
 In Oracle Cloud Console:
 
@@ -148,33 +72,28 @@ In Oracle Cloud Console:
    - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `80`, Protocol: TCP
    - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `443`, Protocol: TCP
 
-Then SSH into the VM and open the OS firewall too:
+### Step 4 — SSH into the VM and run setup
 
 ```bash
 ssh ubuntu@<your-public-ip>
-sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-sudo netfilter-persistent save
-```
 
-**Step 4 — Install Docker**
-
-```bash
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-**Step 5 — Clone and configure**
-
-```bash
+# Clone the repo
 git clone <your-repo-url> data-ruler
 cd data-ruler
-cp .env.example .env
+
+# Run the setup script (installs Docker, opens OS firewall)
+chmod +x setup-oracle.sh
+./setup-oracle.sh
 ```
 
-Edit `.env`:
+> After setup, log out and back in so Docker group permissions take effect:
+> ```bash
+> exit
+> ssh ubuntu@<your-public-ip>
+> cd data-ruler
+> ```
+
+### Step 5 — Configure environment
 
 ```bash
 nano .env
@@ -185,78 +104,67 @@ Set these values:
 ```env
 NEXTAUTH_SECRET=<run: openssl rand -base64 32>
 NEXTAUTH_URL=https://yourdomain.com
-AI_SERVICE_URL=http://ai-service:8000
-GROQ_API_KEY=gsk_your_key_here
+OLLAMA_CLOUD_API_KEY=your-ollama-cloud-key
+OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
+DOMAIN=yourdomain.com
 ```
 
-**Step 6 — Set up HTTPS with Caddy (automatic SSL)**
+> **No custom domain?** Get a free subdomain from [DuckDNS](https://www.duckdns.org) — point it to your Oracle VM's IP and use that as `DOMAIN`.
 
-Create a `Caddyfile` in the project root:
+### Step 6 — Set your domain in the Caddyfile
 
-```
-yourdomain.com {
-    reverse_proxy web:3000
-}
-```
+The `Caddyfile` uses the `DOMAIN` env var from `.env` automatically. No manual edit needed.
 
-Add Caddy to `docker-compose.yml` by creating a `docker-compose.override.yml`:
-
-```yaml
-services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-    depends_on:
-      - web
-  web:
-    ports: !override []
-
-volumes:
-  caddy_data:
-```
-
-> **No custom domain?** You can use a free subdomain from [DuckDNS](https://www.duckdns.org) — just point it to your Oracle VM's IP and use that in the Caddyfile.
-
-**Step 7 — Deploy**
+### Step 7 — Deploy
 
 ```bash
-./deploy.sh
+./deploy.sh prod
 ```
 
-Your app is live at `https://yourdomain.com` with 24GB RAM, persistent storage, and no usage limits.
+Your app is live at `https://yourdomain.com` with automatic HTTPS, 24GB RAM, persistent storage, and no usage limits.
 
-> **What you get for free, forever:** 4 ARM CPUs, 24GB RAM, 200GB boot volume, 10TB/month outbound data. No sleep, no cold starts, no time limits.
+### What you get for free, forever
+
+| Resource | Amount |
+|----------|--------|
+| CPUs | 4 ARM (Ampere A1) |
+| RAM | 24 GB |
+| Boot Volume | 200 GB |
+| Outbound Data | 10 TB/month |
+| Sleep/Cold Starts | None — always running |
+| Time Limit | None — permanent |
 
 ## Environment Variables
 
 ```bash
-# Required: at least ONE cloud LLM API key
-GROQ_API_KEY=gsk_...                  # Groq (recommended, fastest)
-OPENROUTER_API_KEY=sk-or-...           # OpenRouter (most models)
-HF_API_TOKEN=hf_...                    # HuggingFace (embeddings + chat)
-OLLAMA_CLOUD_API_KEY=...               # Ollama Cloud (remote Ollama instance)
-
-# Optional: model overrides
-GROQ_CHAT_MODEL=llama-3.3-70b-versatile
-GROQ_FAST_MODEL=llama-3.1-8b-instant
-OPENROUTER_CHAT_MODEL=meta-llama/llama-3.3-70b-instruct:free
-OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
-# Model is locked to gemini-3-flash-preview (not configurable)
-
 # Auth
 NEXTAUTH_SECRET=your-secret-key-here
+NEXTAUTH_URL=http://localhost:3000
 
 # Service URLs
 AI_SERVICE_URL=http://localhost:8000
+
+# Ollama Cloud (AI model provider)
+# Model is locked to gemini-3-flash-preview
+OLLAMA_CLOUD_API_KEY=your-key
+OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
+
+# LLM settings
+LLM_TIMEOUT=120
+
+# Production domain (used by Caddy for HTTPS)
+DOMAIN=localhost
+
+# Storage paths
+DATABASE_PATH=./data/databases
+UPLOAD_PATH=./data/uploads
+VECTOR_PATH=./data/vectors
+THUMBNAIL_PATH=./data/thumbnails
+TRANSCRIPTION_PATH=./data/transcriptions
+EXPORT_PATH=./data/exports
 ```
 
-See `.env.example` for all options.
+See `.env.example` for the full template.
 
 ## Pages & UI
 
@@ -276,67 +184,37 @@ Account creation form with display name, email, password (8+ chars). Matches the
 
 ### Files (`/files`)
 
-Project Files page with breadcrumb navigation (Repository / Main Files), list/grid view toggle, and Quantum Upload Gateway drop zone. File table features colored category badges (Behavioral, Spatial, Financial), quality score bars with percentages, status dots (Processed/Processing/Failed/Queued), and pagination. Toolbar includes Select All, Bulk Download, Filters, and Sort controls.
+Project Files page with breadcrumb navigation, list/grid view toggle, and Quantum Upload Gateway drop zone. File table features colored category badges, quality score bars with percentages, status dots, and pagination.
 
 ![Files](docs/screenshots/03-files-list.png)
 
 ### Dashboards (`/dashboards`)
 
-Dashboard overview with stats cards (Total Visuals with trend, Active Streams with live indicator, System Performance with AI Core Utilization bar chart). Filter tabs (All Types, Recently Updated, Shared). Dashboard cards show mini chart previews, visibility badges (Public/Private/Internal), widget counts, and update timestamps. Includes "Create New View" card with pagination.
+Dashboard overview with stats cards, filter tabs, and dashboard cards showing mini chart previews, visibility badges, widget counts, and update timestamps.
 
 ![Dashboards](docs/screenshots/04-dashboards.png)
 
 ### AI Chat (`/chat`)
 
-Full-page AI Chat Assistant with Recent Insights panel showing conversation history. Chat supports rich content rendering: highlighted metrics in emerald green, SQL code blocks with PostgreSQL syntax highlighting, comparative bar charts (Revenue Growth by Category with Q3 vs Q4), and action buttons (Helpful, Regenerate). Input bar with attachment, microphone, and send controls. Footer shows "AI-Powered Insights / Verified Data Models".
+Full-page AI Chat Assistant with conversation history. Chat supports rich content rendering: highlighted metrics, SQL code blocks, comparative bar charts, and action buttons.
 
 ![AI Chat](docs/screenshots/13-ai-chat.png)
 
 ### Notes (`/notes`)
 
-Notes Explorer sidebar with synced status badges and file association icons. Editor features auto-save indicator, formatting toolbar (Bold, Italic, List, Code), Linked Assets section, and Preview mode. Bottom stats show Sentiment Shift and Tokens Processed metrics.
+Notes Explorer with synced status badges and file association icons. Editor features auto-save, formatting toolbar, Linked Assets, and Preview mode.
 
 ![Notes](docs/screenshots/05-notes.png)
 
 ### Reports (`/reports`)
 
-Report management with 5 template cards for quick creation. Report cards show template icon, status badge (Draft/Generating/Ready/Error), and metadata. Search and filter by status.
+Report management with 5 template cards. Report cards show template icon, status badge, and metadata.
 
 ![Reports](docs/screenshots/06-reports.png)
 
-#### Executive Summary Report
-
-"Report Active / Live Stream Connected" status badges. Schema Structure Analysis table with Dataset ID, Columns, Rows, Storage Size, and Health bars. Volume Allocation visualization with Total Payload and Peak Flow metrics. Anomaly Detection alerts with priority levels (High/Medium/Cleared). Cross-Dataset Correlation coefficient matrix. Advanced Curatorial Insight narrative with Index Health and Risk Score cards.
-
-![Executive Summary Report](docs/screenshots/08-report-executive-summary.png)
-
-#### Data Deep-Dive Report
-
-Comprehensive technical breakdown with schema analysis, volume allocation distribution chart, anomaly detection (Skewed Distribution, Missing Entry Pattern, Outlier Resolved), and cross-dataset Pearson correlation matrix heatmap.
-
-![Data Deep-Dive Report](docs/screenshots/09-report-data-deep-dive.png)
-
-#### Monthly Report
-
-Processing pipeline stats (Ingested, Processed, Errors, Pending), category breakdown table, quality trends, and activity timeline.
-
-![Monthly Report](docs/screenshots/10-report-monthly.png)
-
-#### Comparison Report
-
-Dataset Divergence Analysis with Similarity Score badge. Side-by-side comparison table: Attribute column with File A vs File B showing Format, Category, Size (with Rank badges), Structure (Rows/Columns), Data Quality (Completeness + Consistency bars), and Status (Production Ready / Needs Sanitization). Statistical Difference Analysis cards (Schema Mismatch, Unique Entity Analysis, Outlier Detection, Temporal Drift). Performance Rankings with Quality Leader and Efficiency Score.
-
-![Comparison Report](docs/screenshots/11-report-comparison.png)
-
-#### Quick Brief Report
-
-Dataset Snapshot with Live Analysis indicator. File metadata card (Format, Total Size, Rows, Cols) alongside a quality ring chart (88%). Metric cards: Integrity (Optimal), Velocity (14.2ms), Outliers (3.1%). AI-Generated Insights with "New Insights Available" badge. Side cards: Ingest Trend bar chart, Top Performing Column, and "Automate Clean?" CTA with Apply Fixes button.
-
-![Quick Brief Report](docs/screenshots/12-report-quick-brief.png)
-
 ### Settings (`/settings`)
 
-Profile management, dark/light theme toggle, language selector (English/Hebrew with RTL), AI model configuration, server-side storage usage with progress bar, cache clearing, and bulk file reprocessing.
+Profile management, dark/light theme toggle, language selector (English/Hebrew with RTL), AI model configuration, storage monitoring, and bulk file reprocessing.
 
 ![Settings](docs/screenshots/07-settings.png)
 
@@ -494,11 +372,9 @@ Each uploaded tabular file gets its own table: `file_{file_id}` with all columns
 
 ## Multi-Agent Architecture
 
-DataRuler uses 20 specialized AI agents coordinated by an LLM-powered orchestrator. This section explains how they work together.
+DataRuler uses 20 specialized AI agents coordinated by an LLM-powered orchestrator.
 
 ### Request Lifecycle
-
-All requests — including chat — flow through the orchestrator pipeline. The orchestrator determines intent, builds an execution plan, dispatches agents in parallel groups with session context, and synthesizes results via LLM.
 
 ```
 HTTP Request (user message, file upload, query)
@@ -510,13 +386,12 @@ HTTP Request (user message, file upload, query)
          │
          ▼
 ┌──────────────────┐     ┌──────────────────┐
-│   Orchestrator    │────▶│  Cloud LLM (Groq)│  temperature=0.1
+│   Orchestrator    │────▶│  Ollama Cloud    │  temperature=0.1
 │   Agent           │◄────│  json_mode=true  │  max_tokens=512
 └────────┬─────────┘     └──────────────────┘
          │
          │  Session context (ContextStore)
-         │  + Execution plan JSON:
-         │  { intent, confidence, plan: [{agent, parallel_group}], reasoning }
+         │  + Execution plan JSON
          │
          ▼
 ┌──────────────────────────────────────────────────────┐
@@ -540,112 +415,6 @@ HTTP Request (user message, file upload, query)
          ▼
     HTTP Response (streamed SSE or JSON)
 ```
-
-### Agent Communication Protocol
-
-All inter-agent communication uses the `AgentMessage` envelope:
-
-```python
-AgentMessage:
-  message_id:     UUID        # Unique message identifier
-  correlation_id: UUID        # Tracks request/reply chains
-  type:           REQUEST | RESPONSE | ERROR | STATUS
-  source_agent:   str         # Sender agent name
-  target_agent:   str         # Recipient agent name
-  priority:       LOW(0) | NORMAL(1) | HIGH(2) | CRITICAL(3)
-  payload:        dict        # Arbitrary data (input params, results, errors)
-  ttl:            int         # Time-to-live in seconds
-  created_at:     datetime    # Timestamp
-```
-
-### Agent Contracts
-
-Each agent declares an `AgentContract` specifying its required/optional inputs and guaranteed output keys. The base class validates contracts at dispatch time, returning clear error messages when required inputs are missing.
-
-```python
-AgentContract:
-  required_inputs: tuple[str, ...]   # Keys the agent expects in the payload
-  optional_inputs: tuple[str, ...]   # Keys the agent can use but doesn't require
-  output_keys:     tuple[str, ...]   # Keys guaranteed in the response on success
-```
-
-### Message Bus
-
-The message bus provides async pub/sub with priority-based dispatch:
-
-- **Target-based routing** — Messages routed to `target_agent` via registered subscriber callbacks
-- **Priority queue** — `asyncio.PriorityQueue` dequeues highest-priority messages first
-- **Request/reply** — `correlation_id` maps to `asyncio.Future` for blocking await with timeout (default 30s)
-- **Fan-out** — Multiple subscribers can register for the same agent (all receive the message)
-- **TTL enforcement** — Messages past their TTL are moved to the dead letter queue instead of being delivered
-- **Dead letter queue** — Undeliverable and expired messages are captured with reason codes for operational visibility (`GET /api/agents/bus-stats`)
-
-### Orchestrator Decision Logic
-
-The orchestrator has two paths for deciding which agents to invoke:
-
-**Path A — LLM Intent Parsing** (primary):
-1. Constructs prompt with user message + file context + schema context + session state
-2. Calls LLM with `json_mode=True`, `temperature=0.1` (deterministic)
-3. Returns structured JSON plan
-
-**Path B — Keyword Fallback** (when LLM parsing fails):
-
-| Keywords | Intent | Agents |
-|----------|--------|--------|
-| `query`, `select`, `sql`, `count`, `average` | query_data | sql_agent |
-| `chart`, `plot`, `graph`, `visualize` | visualize | analytics → visualization |
-| `analyze`, `statistics`, `profile` | analyze_data | schema_inference + analytics → visualization |
-| `export`, `download`, `save as` | export | export_agent |
-| `relationship`, `foreign key`, `join` | find_relationships | relationship_mining |
-| `upload`, `process`, `import` | process_file | validation + detection → schema → storage |
-| _(anything else)_ | general_chat | document_qa |
-
-### Parallel Execution Engine
-
-Groups execute **sequentially** (group 0 finishes before group 1 starts). Steps **within** a group run **concurrently** via `asyncio.gather`. Failed agents within a parallel group do not block other agents in the same group.
-
-### Circuit Breaker
-
-Per-agent fault tolerance prevents cascading failures:
-
-```
-    CLOSED (normal operation)
-        │
-        │ failure_count >= 5 (within 10-min window)
-        ▼
-      OPEN (all calls rejected immediately)
-        │
-        │ 60 seconds elapsed
-        ▼
-    HALF_OPEN (allow exactly 1 probe request)
-       ╱ ╲
-  success   failure
-     │         │
-     ▼         ▼
-   CLOSED     OPEN
-```
-
-- **Threshold**: 5 failures within a 10-minute rolling window
-- **Recovery timeout**: 60 seconds before probing
-
-### Token Budget Manager
-
-Two-level budget model prevents runaway LLM costs:
-
-- **Global Budget**: 2,000,000 tokens/hour (all agents combined)
-- **Per-Agent Budget**: 400,000 tokens/hour each
-- **Rolling window**: 1-hour sliding window with lazy pruning
-- **Pre-check**: `has_budget(agent_name)` called before dispatch — if exhausted, agent is skipped
-
-### Context Store
-
-Per-session shared state enables agents to collaborate without direct coupling:
-
-- **Table Registry** — Agents register imported tables with schema info
-- **Relationship Graph** — Discovered foreign keys with confidence scores
-- **File Catalog** — Shared file metadata accessible to all agents
-- **Cache** — Arbitrary key-value store for intermediate results
 
 ### 20 Specialized Agents
 
@@ -692,11 +461,11 @@ data-ruler/
 │       └── models/                 # Pydantic schemas (15+ models)
 │
 ├── data/                           # Runtime data (gitignored)
-├── scripts/                        # Utility scripts (screenshot generation)
-├── docker-compose.yml              # Docker Compose for self-hosted / Oracle Cloud
-├── fly.toml                        # Fly.io config — Next.js web app
-├── fly.ai-service.toml             # Fly.io config — Python AI service
-├── deploy.sh                       # One-command Docker deploy with version stamping
+├── Caddyfile                       # Caddy reverse proxy config (HTTPS)
+├── docker-compose.yml              # Docker Compose (local + base)
+├── docker-compose.prod.yml         # Production override (adds Caddy HTTPS)
+├── deploy.sh                       # Deploy script (local or prod)
+├── setup-oracle.sh                 # Oracle Cloud VM one-time setup
 ├── start.sh                        # Local startup (no Docker)
 └── .env.example                    # Configuration template
 ```

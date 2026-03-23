@@ -5,11 +5,7 @@ Go from zero to running in 5 steps.
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose installed
-- A free API key from one of:
-  - [Groq](https://console.groq.com/keys) (recommended — fastest)
-  - [OpenRouter](https://openrouter.ai/keys)
-  - [HuggingFace](https://huggingface.co/settings/tokens)
-  - [Ollama](https://ollama.com/) Cloud (remote Ollama instance with API key)
+- An Ollama Cloud API key (remote Ollama instance)
 
 ## Steps
 
@@ -26,10 +22,10 @@ cd data-ruler
 cp .env.example .env
 ```
 
-Open `.env` and paste your API key into the matching variable:
+Open `.env` and paste your Ollama Cloud API key:
 
 ```
-GROQ_API_KEY=gsk_your_key_here
+OLLAMA_CLOUD_API_KEY=your-key-here
 ```
 
 ### 3. Start the services
@@ -74,19 +70,23 @@ docker compose down
 # Press Ctrl+C in the terminal running start.sh
 ```
 
-## Deploying to Production
+## Deploying to Production (Oracle Cloud)
+
+DataRuler is designed to run on **Oracle Cloud Always-Free Tier** — 4 ARM CPUs, 24GB RAM, 200GB disk, forever free.
 
 1. Set a strong `NEXTAUTH_SECRET` in `.env`
 2. Set `NEXTAUTH_URL=https://yourdomain.com`
-3. Put a reverse proxy (e.g., [Caddy](https://caddyserver.com/) or Nginx) in front of port 3000 for HTTPS
-4. Point your domain's DNS A record to your server IP
-5. Run `docker compose up -d`
+3. Set `DOMAIN=yourdomain.com` in `.env`
+4. Point your domain's DNS A record to your Oracle VM's IP
+5. Run `./deploy.sh prod` (uses Caddy for automatic HTTPS)
+
+See `README.md` for the full step-by-step Oracle Cloud deployment guide.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
 | Containers won't start | Run `docker compose logs` to check errors |
-| AI features not working | Verify your API key is set in `.env` |
+| AI features not working | Verify `OLLAMA_CLOUD_API_KEY` is set in `.env` |
 | Port 3000 in use | Stop the other service or change the port in `docker-compose.yml` |
 | Health check | Visit [http://localhost:8000/health](http://localhost:8000/health) to verify the AI service |
