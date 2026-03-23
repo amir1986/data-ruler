@@ -2,7 +2,7 @@
 
 A self-hosted, AI-powered data management and analytics platform. Upload any file type, get automatic processing, interactive dashboards, AI-generated reports, and chat with an AI assistant that understands your data.
 
-**Cloud-only LLM inference** — no local GPU required. Uses free-tier cloud APIs (Groq, OpenRouter, HuggingFace) or Ollama Cloud.
+**Cloud-only LLM inference** — no local GPU required. Uses Groq (free tier) or Ollama Cloud.
 
 ## Features
 
@@ -16,7 +16,7 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 - **Notes System** — Markdown notes with auto-save, linked to files or standalone
 - **Export** — Export dashboards and reports as JSON, export data as CSV, JSON, XLSX
 - **Settings** — Profile management, AI model configuration, server-side storage monitoring, and bulk file reprocessing
-- **Privacy First** — All data stays on your server. LLM calls go to free cloud APIs (Groq/OpenRouter/HuggingFace/Ollama Cloud)
+- **Privacy First** — All data stays on your server. LLM calls go to free cloud APIs (Groq or Ollama Cloud)
 
 ## Tech Stack
 
@@ -27,10 +27,10 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 | State | Zustand |
 | Backend API | Next.js API Routes (BFF) + Python FastAPI (AI Service) |
 | Database | SQLite (catalog + user data), DuckDB (OLAP analytics) |
-| AI / LLM | Groq (free), OpenRouter (free), HuggingFace Inference API (free), Ollama Cloud |
-| Embeddings | HuggingFace sentence-transformers |
+| AI / LLM | Groq (free tier), Ollama Cloud |
+| Embeddings | OpenAI-compatible embeddings (via Groq or Ollama Cloud) |
 | Auth | JWT + bcrypt, cookie-based sessions |
-| Deployment | Docker Compose, Fly.io (free), Oracle Cloud (free) |
+| Deployment | Docker Compose, Oracle Cloud Always-Free Tier |
 
 ## Quick Start
 
@@ -38,91 +38,17 @@ A self-hosted, AI-powered data management and analytics platform. Upload any fil
 git clone <repo-url>
 cd data-ruler
 cp .env.example .env
-# Edit .env — add at least one API key (GROQ_API_KEY, OPENROUTER_API_KEY, HF_API_TOKEN, or OLLAMA_CLOUD_API_KEY)
+# Edit .env — add at least one API key (GROQ_API_KEY or OLLAMA_CLOUD_API_KEY)
 docker compose up --build -d
 ```
 
 Open http://localhost:3000 and create an account.
 
-Get a free API key from [Groq](https://console.groq.com/keys) (recommended), [OpenRouter](https://openrouter.ai/keys), [HuggingFace](https://huggingface.co/settings/tokens), or use an [Ollama](https://ollama.com/) cloud API key.
+Get a free API key from [Groq](https://console.groq.com/keys) (recommended) or use an [Ollama Cloud](https://ollama.com/) API key.
 
-## Deploy to Production (Free — $0)
+## Deploy to Production (Free — $0, Oracle Cloud Always Free)
 
-Two free deployment options. Both give you HTTPS, a public URL, and persistent storage for your databases.
-
-### Option A: Fly.io (Easiest — free tier, no server to manage)
-
-[Fly.io](https://fly.io) runs your Docker containers on their infrastructure. Free tier includes 3 shared VMs with 256MB RAM each and 1GB persistent volumes — enough for both services. Services auto-start on incoming requests and auto-stop when idle (no cold start penalty like Render).
-
-**Prerequisites:** A free Fly.io account and the `flyctl` CLI.
-
-**Step 1 — Install the Fly CLI**
-
-```bash
-# macOS / Linux
-curl -L https://fly.io/install.sh | sh
-
-# Windows (PowerShell)
-powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
-```
-
-**Step 2 — Sign up and log in**
-
-```bash
-fly auth signup    # Creates a free account (or use: fly auth login)
-```
-
-**Step 3 — Deploy the AI service first**
-
-```bash
-cd data-ruler
-
-# Launch the Python AI service
-fly launch --config fly.ai-service.toml --no-deploy
-fly volumes create ai_service_data --size 1 --region iad --yes -a data-ruler-ai
-
-# Set your LLM API key (get a free one at https://console.groq.com/keys)
-fly secrets set GROQ_API_KEY=gsk_your_key_here -a data-ruler-ai
-
-# Deploy
-fly deploy --config fly.ai-service.toml
-```
-
-Note the URL printed at the end (e.g., `https://data-ruler-ai.fly.dev`).
-
-**Step 4 — Deploy the web app**
-
-```bash
-# Launch the Next.js web app
-fly launch --config fly.toml --no-deploy
-fly volumes create data_ruler_data --size 1 --region iad --yes -a data-ruler-web
-
-# Set secrets (replace the AI_SERVICE_URL with your actual AI service URL from Step 3)
-fly secrets set \
-  NEXTAUTH_SECRET=$(openssl rand -base64 32) \
-  NEXTAUTH_URL=https://data-ruler-web.fly.dev \
-  AI_SERVICE_URL=https://data-ruler-ai.fly.dev \
-  -a data-ruler-web
-
-# Deploy
-fly deploy --config fly.toml
-```
-
-**Step 5 — Open your app**
-
-```bash
-fly open -a data-ruler-web
-```
-
-Your app is live at `https://data-ruler-web.fly.dev` with persistent SQLite/DuckDB storage.
-
-> **Free tier includes:** 3 shared-cpu VMs (256MB each), 1GB persistent volumes, automatic HTTPS, auto-start/stop. No credit card required to start.
-
----
-
-### Option B: Oracle Cloud Always Free (Best specs — 24GB RAM, forever free)
-
-[Oracle Cloud](https://cloud.oracle.com) offers an **always-free** ARM VM with 4 CPUs, 24GB RAM, and 200GB disk — permanently, no time limit. This is the best free option for production use. You run Docker Compose on the VM, just like localhost but publicly accessible.
+[Oracle Cloud](https://cloud.oracle.com) offers an **always-free** ARM VM with 4 CPUs, 24GB RAM, and 200GB disk — permanently, no time limit. You run Docker Compose on the VM with Caddy for automatic HTTPS.
 
 **Step 1 — Create a free Oracle Cloud account**
 
@@ -148,35 +74,23 @@ In Oracle Cloud Console:
    - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `80`, Protocol: TCP
    - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `443`, Protocol: TCP
 
-Then SSH into the VM and open the OS firewall too:
+**Step 4 — Set up the VM**
+
+SSH into the VM and run the setup script:
 
 ```bash
 ssh ubuntu@<your-public-ip>
-sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-sudo netfilter-persistent save
-```
-
-**Step 4 — Install Docker**
-
-```bash
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-**Step 5 — Clone and configure**
-
-```bash
 git clone <your-repo-url> data-ruler
 cd data-ruler
-cp .env.example .env
+./setup-oracle.sh
 ```
 
-Edit `.env`:
+This installs Docker, opens OS-level firewall ports (80, 443), and prints next steps. You may need to log out and back in after install for Docker group changes.
+
+**Step 5 — Configure environment**
 
 ```bash
+cp .env.example .env
 nano .env
 ```
 
@@ -186,12 +100,13 @@ Set these values:
 NEXTAUTH_SECRET=<run: openssl rand -base64 32>
 NEXTAUTH_URL=https://yourdomain.com
 AI_SERVICE_URL=http://ai-service:8000
-GROQ_API_KEY=gsk_your_key_here
+DOMAIN=yourdomain.com
+GROQ_API_KEY=gsk_your_key_here        # or OLLAMA_CLOUD_API_KEY
 ```
 
-**Step 6 — Set up HTTPS with Caddy (automatic SSL)**
+**Step 6 — Configure HTTPS**
 
-Create a `Caddyfile` in the project root:
+Edit the `Caddyfile` in the project root — replace `your-domain.com` with your actual domain:
 
 ```
 yourdomain.com {
@@ -199,35 +114,15 @@ yourdomain.com {
 }
 ```
 
-Add Caddy to `docker-compose.yml` by creating a `docker-compose.override.yml`:
-
-```yaml
-services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-    depends_on:
-      - web
-  web:
-    ports: !override []
-
-volumes:
-  caddy_data:
-```
-
-> **No custom domain?** You can use a free subdomain from [DuckDNS](https://www.duckdns.org) — just point it to your Oracle VM's IP and use that in the Caddyfile.
+> **No custom domain?** Use a free subdomain from [DuckDNS](https://www.duckdns.org) — point it to your Oracle VM's IP and use that in the Caddyfile and `.env`.
 
 **Step 7 — Deploy**
 
 ```bash
 ./deploy.sh
 ```
+
+The deploy script auto-detects production mode when `DOMAIN` is set in `.env` and uses Caddy for HTTPS.
 
 Your app is live at `https://yourdomain.com` with 24GB RAM, persistent storage, and no usage limits.
 
@@ -238,22 +133,22 @@ Your app is live at `https://yourdomain.com` with 24GB RAM, persistent storage, 
 ```bash
 # Required: at least ONE cloud LLM API key
 GROQ_API_KEY=gsk_...                  # Groq (recommended, fastest)
-OPENROUTER_API_KEY=sk-or-...           # OpenRouter (most models)
-HF_API_TOKEN=hf_...                    # HuggingFace (embeddings + chat)
 OLLAMA_CLOUD_API_KEY=...               # Ollama Cloud (remote Ollama instance)
 
 # Optional: model overrides
 GROQ_CHAT_MODEL=llama-3.3-70b-versatile
 GROQ_FAST_MODEL=llama-3.1-8b-instant
-OPENROUTER_CHAT_MODEL=meta-llama/llama-3.3-70b-instruct:free
 OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
-# Model is locked to gemini-3-flash-preview (not configurable)
+# Ollama Cloud model is locked to gemini-3-flash-preview (not configurable)
 
 # Auth
 NEXTAUTH_SECRET=your-secret-key-here
 
 # Service URLs
 AI_SERVICE_URL=http://localhost:8000
+
+# Production (Oracle Cloud)
+DOMAIN=your-domain.com
 ```
 
 See `.env.example` for all options.
@@ -693,10 +588,11 @@ data-ruler/
 │
 ├── data/                           # Runtime data (gitignored)
 ├── scripts/                        # Utility scripts (screenshot generation)
-├── docker-compose.yml              # Docker Compose for self-hosted / Oracle Cloud
-├── fly.toml                        # Fly.io config — Next.js web app
-├── fly.ai-service.toml             # Fly.io config — Python AI service
-├── deploy.sh                       # One-command Docker deploy with version stamping
+├── Caddyfile                       # Caddy reverse proxy (HTTPS, production)
+├── docker-compose.yml              # Docker Compose (base, local dev + production)
+├── docker-compose.prod.yml         # Production overlay (adds Caddy for HTTPS)
+├── deploy.sh                       # Deploy with auto-detect dev/prod mode
+├── setup-oracle.sh                 # Oracle Cloud VM initial setup
 ├── start.sh                        # Local startup (no Docker)
 └── .env.example                    # Configuration template
 ```

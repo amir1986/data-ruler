@@ -7,9 +7,7 @@ Go from zero to running in 5 steps.
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose installed
 - A free API key from one of:
   - [Groq](https://console.groq.com/keys) (recommended — fastest)
-  - [OpenRouter](https://openrouter.ai/keys)
-  - [HuggingFace](https://huggingface.co/settings/tokens)
-  - [Ollama](https://ollama.com/) Cloud (remote Ollama instance with API key)
+  - [Ollama Cloud](https://ollama.com/) (remote Ollama instance with API key)
 
 ## Steps
 
@@ -74,13 +72,17 @@ docker compose down
 # Press Ctrl+C in the terminal running start.sh
 ```
 
-## Deploying to Production
+## Deploying to Production (Oracle Cloud, Free)
 
-1. Set a strong `NEXTAUTH_SECRET` in `.env`
-2. Set `NEXTAUTH_URL=https://yourdomain.com`
-3. Put a reverse proxy (e.g., [Caddy](https://caddyserver.com/) or Nginx) in front of port 3000 for HTTPS
-4. Point your domain's DNS A record to your server IP
-5. Run `docker compose up -d`
+1. Run `./setup-oracle.sh` on your Oracle Cloud VM to install Docker and open firewall ports
+2. Clone this repo, then `cp .env.example .env`
+3. Set a strong `NEXTAUTH_SECRET` (run: `openssl rand -base64 32`)
+4. Set `NEXTAUTH_URL=https://yourdomain.com`
+5. Set `DOMAIN=yourdomain.com` in `.env`
+6. Edit `Caddyfile` — replace `your-domain.com` with your domain
+7. Run `./deploy.sh` (auto-detects production mode when DOMAIN is set)
+
+See [README.md](README.md) for full Oracle Cloud setup instructions.
 
 ## Troubleshooting
 

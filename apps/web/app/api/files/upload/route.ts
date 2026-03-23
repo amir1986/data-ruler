@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
       // Send file to AI service for processing.
       // Uses upload-and-process (sends bytes) so it works when
-      // web and AI service have separate storage (e.g. Fly.io).
+      // web and AI service have separate storage.
       try {
         const aiFormData = new FormData();
         aiFormData.append('file', new Blob([buffer]), file.name);
