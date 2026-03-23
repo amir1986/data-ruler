@@ -217,11 +217,13 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
                 table_name = base_table if idx == 0 else f"{base_table}__s{idx}"
                 sheet_table_map[sheet_name or f"Sheet{idx + 1}"] = table_name
 
+                # Drop existing table to prevent duplicate rows on reprocessing
+                user_conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
                 col_defs = ", ".join(
                     f'"{_sql_escape_ident(c)}" TEXT' for c in columns
                 )
                 user_conn.execute(
-                    f'CREATE TABLE IF NOT EXISTS "{table_name}" ({col_defs})'
+                    f'CREATE TABLE "{table_name}" ({col_defs})'
                 )
 
                 placeholders = ", ".join(["?"] * len(columns))
