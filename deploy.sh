@@ -1,5 +1,10 @@
 #!/bin/bash
-# Deploy Data Ruler with version hash + datetime stamped into the UI
+# =============================================================================
+# Deploy Data Ruler
+# Usage:
+#   ./deploy.sh          — Local development (no HTTPS)
+#   ./deploy.sh prod     — Production with Caddy HTTPS (Oracle Cloud)
+# =============================================================================
 set -e
 
 # Check .env
@@ -15,7 +20,7 @@ if ! command -v docker &>/dev/null; then
   exit 1
 fi
 
-GIT_HASH=$(git rev-parse --short HEAD)
+GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
 BUILD_TIME=$(date '+%Y-%m-%d %H:%M')
 export BUILD_VERSION="v${GIT_HASH} | ${BUILD_TIME}"
 
@@ -23,7 +28,7 @@ echo "Deploying: ${BUILD_VERSION}"
 
 # Use production overlay if DOMAIN is configured
 DOMAIN=$(grep -E '^DOMAIN=' .env 2>/dev/null | cut -d= -f2 | tr -d ' "'"'"'')
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "your-domain.com" ] && [ -f docker-compose.prod.yml ]; then
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "your-domain.com" ] && [ "$DOMAIN" != "localhost" ] && [ -f docker-compose.prod.yml ]; then
   echo "Production mode: HTTPS via Caddy for ${DOMAIN}"
   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d "$@"
 else

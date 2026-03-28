@@ -10,7 +10,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      - DOMAIN=${DOMAIN:-your-domain.com}
+      - DOMAIN=${DOMAIN:-dataruler.duckdns.org}
     depends_on:
       - web
 

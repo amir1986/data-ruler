@@ -26,13 +26,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Cloud LLM keys — Groq + Ollama Cloud (pass from host .env)
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # Ollama Cloud
       - OLLAMA_CLOUD_API_KEY=${OLLAMA_CLOUD_API_KEY:-}
-      # Model overrides
-      - GROQ_CHAT_MODEL=${GROQ_CHAT_MODEL:-llama-3.3-70b-versatile}
-      - GROQ_CODE_MODEL=${GROQ_CODE_MODEL:-llama-3.3-70b-versatile}
-      - GROQ_FAST_MODEL=${GROQ_FAST_MODEL:-llama-3.1-8b-instant}
       - OLLAMA_CLOUD_BASE_URL=${OLLAMA_CLOUD_BASE_URL:-https://ollama.com/v1}
       # Storage
       - DATABASE_PATH=/data/databases
