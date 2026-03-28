@@ -38,7 +38,6 @@ import {
 import { useLanguageStore } from '@/stores/language-store';
 import { format } from 'date-fns';
 import { safeFormatDate } from '@/lib/utils';
-import * as XLSX from 'xlsx';
 import ReportViewer from '@/components/reports/report-viewer';
 
 function getStatusStyle(status: string) {
@@ -591,112 +590,14 @@ export default function ReportsPage() {
               <div className="flex gap-2 pt-2">
                 <Button
                   onClick={() => {
-                    const content = activeReport.content as Record<string, unknown>;
-                    const wb = XLSX.utils.book_new();
-
-                    // 1. Summary sheet — report overview + KPIs
-                    const summaryRows: (string | number | null)[][] = [
-                      ['Report Title', activeReport.title],
-                      ['Template', String(content.template || '')],
-                      ['Generated', String(content.generated_at || '')],
-                      [''],
-                      ['Summary'],
-                      [String(content.summary || '')],
-                    ];
-                    if (content.kpis && Array.isArray(content.kpis)) {
-                      summaryRows.push([''], ['KPIs'], ['Metric', 'Value', 'Detail']);
-                      (content.kpis as { label: string; value: string; sublabel?: string }[]).forEach((kpi) => {
-                        summaryRows.push([kpi.label, kpi.value, kpi.sublabel || '']);
-                      });
-                    }
-                    // Add metrics
-                    const metrics = content.metrics as Record<string, unknown> | undefined;
-                    if (metrics) {
-                      summaryRows.push([''], ['Key Metrics']);
-                      Object.entries(metrics).forEach(([key, val]) => {
-                        if (!Array.isArray(val)) {
-                          summaryRows.push([key.replace(/_/g, ' '), val as string | number]);
-                        }
-                      });
-                    }
-                    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary');
-
-                    // 2. Sections sheet
-                    if (content.sections && Array.isArray(content.sections)) {
-                      const sectionRows: string[][] = [['Section', 'Content']];
-                      (content.sections as { title: string; content: string }[]).forEach((s) => {
-                        sectionRows.push([s.title, s.content]);
-                      });
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sectionRows), 'Sections');
-                    }
-
-                    // 3. Files sheet
-                    if (content.files && Array.isArray(content.files) && (content.files as unknown[]).length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(content.files as Record<string, unknown>[]), 'Files');
-                    }
-
-                    // 4. Quality Breakdown
-                    const qb = content.quality_breakdown as { name: string; quality: number }[] | undefined;
-                    if (qb && qb.length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(qb), 'Quality Breakdown');
-                    }
-
-                    // 5. Schema Table
-                    const st = content.schema_table as Record<string, unknown>[] | undefined;
-                    if (st && st.length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(st), 'Schema Analysis');
-                    }
-
-                    // 6. Size Distribution
-                    const sd = content.size_distribution as Record<string, unknown>[] | undefined;
-                    if (sd && sd.length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sd), 'Size Distribution');
-                    }
-
-                    // 7. Category Breakdown
-                    const cb = content.category_breakdown as Record<string, unknown>[] | undefined;
-                    if (cb && cb.length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cb), 'Categories');
-                    }
-
-                    // 8. Comparison Table
-                    const ct = content.comparison_table as Record<string, unknown>[] | undefined;
-                    if (ct && ct.length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ct), 'Comparison');
-                    }
-
-                    // 9. Rankings
-                    const rk = content.rankings as { by_size: string[]; by_quality: string[] } | undefined;
-                    if (rk) {
-                      const rankRows: (string | number)[][] = [['Rank', 'By Size', 'By Quality']];
-                      const maxLen = Math.max(rk.by_size?.length || 0, rk.by_quality?.length || 0);
-                      for (let i = 0; i < maxLen; i++) {
-                        rankRows.push([i + 1, rk.by_size?.[i] || '', rk.by_quality?.[i] || '']);
-                      }
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rankRows), 'Rankings');
-                    }
-
-                    // 10. AI Insights
-                    const ai = content.ai_insights as { name: string; insight: string }[] | undefined;
-                    if (ai && ai.length > 0) {
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ai), 'AI Insights');
-                    }
-
-                    // 11. Activity Stats
-                    const as2 = content.activity_stats as Record<string, unknown> | undefined;
-                    if (as2) {
-                      const actRows: (string | number)[][] = [['Metric', 'Value']];
-                      Object.entries(as2).forEach(([k, v]) => actRows.push([k.replace(/_/g, ' '), v as number]));
-                      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(actRows), 'Activity');
-                    }
-
-                    XLSX.writeFile(wb, `${activeReport.title.replace(/\s+/g, '_').toLowerCase()}.xlsx`);
+                    // Server-side export includes report + actual source data
+                    window.open(`/api/reports/${activeReport.id}/export`, '_blank');
                   }}
                   variant="outline"
                   className="border-border text-zinc-300"
                 >
                   <Download className="h-4 w-4 me-2" />
-                  {t.reports.exportJson}
+                  {t.reports.exportExcel}
                 </Button>
                 <Button
                   onClick={() => handleGenerate(activeReport)}

@@ -44,16 +44,16 @@ docker compose up --build -d
 
 Open http://localhost:3000 and create an account.
 
-## Deploy to Oracle Cloud Always-Free Tier ($0 Forever)
+## Deploy to Production (Free — $0, Oracle Cloud Always Free)
 
-Oracle Cloud offers **Always Free** resources with no expiration and no charge. The Ampere A1 ARM allocation gives you up to 4 OCPUs and 24GB RAM (in 1 VM or split across up to 4 VMs), plus 200GB block storage. You run Docker Compose on the VM with Caddy for automatic HTTPS.
+[Oracle Cloud](https://cloud.oracle.com) offers **Always Free** resources with no expiration and no charge. The Ampere A1 ARM allocation gives you up to 4 OCPUs and 24GB RAM (in 1 VM or split across up to 4 VMs), plus 200GB block storage. You run Docker Compose on the VM with Caddy for automatic HTTPS.
 
 > **Important constraints:**
 > - Keep A1 instances at or below **4 OCPUs + 24GB RAM total** to avoid deletion when trial credits expire
 > - **Idle instances** (under 20% CPU for 7 consecutive days) may be reclaimed by Oracle
 > - All Always Free resources must be provisioned in your **home region** (selected during signup)
 
-### Step 1 — Create a free Oracle Cloud account
+**Step 1 — Create a free Oracle Cloud account**
 
 Go to [cloud.oracle.com/free](https://www.oracle.com/cloud/free/) and sign up. A credit card is required for identity verification but **you will not be charged** — the Always Free tier is permanent and separate from any trial credits.
 
@@ -77,30 +77,23 @@ In Oracle Cloud Console:
    - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `80`, Protocol: TCP
    - **Source CIDR:** `0.0.0.0/0`, **Destination Port:** `443`, Protocol: TCP
 
-### Step 4 — SSH into the VM and run setup
+### Step 4 — Set up the VM
+
+SSH into the VM and run the setup script:
 
 ```bash
 ssh ubuntu@<your-public-ip>
-
-# Clone the repo
 git clone <your-repo-url> data-ruler
 cd data-ruler
-
-# Run the setup script (installs Docker, opens OS firewall)
-chmod +x setup-oracle.sh
 ./setup-oracle.sh
 ```
 
-> After setup, log out and back in so Docker group permissions take effect:
-> ```bash
-> exit
-> ssh ubuntu@<your-public-ip>
-> cd data-ruler
-> ```
+This installs Docker, opens OS-level firewall ports (80, 443), and prints next steps. You may need to log out and back in after install for Docker group changes.
 
 ### Step 5 — Configure environment
 
 ```bash
+cp .env.example .env
 nano .env
 ```
 
@@ -114,17 +107,19 @@ OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
 DOMAIN=yourdomain.com
 ```
 
-> **No custom domain?** Get a free subdomain from [DuckDNS](https://www.duckdns.org) — point it to your Oracle VM's IP and use that as `DOMAIN`.
+> **No custom domain?** Use a free subdomain from [DuckDNS](https://www.duckdns.org) — point it to your Oracle VM's IP and use that in `.env`.
 
-### Step 6 — Set your domain in the Caddyfile
+### Step 6 — Configure HTTPS
 
 The `Caddyfile` uses the `DOMAIN` env var from `.env` automatically. No manual edit needed.
 
 ### Step 7 — Deploy
 
 ```bash
-./deploy.sh prod
+./deploy.sh
 ```
+
+The deploy script auto-detects production mode when `DOMAIN` is set in `.env` and uses Caddy for HTTPS.
 
 Your app is live at `https://yourdomain.com` with automatic HTTPS, 24GB RAM, persistent storage, and no usage limits.
 
@@ -157,15 +152,15 @@ NEXTAUTH_URL=http://localhost:3000
 AI_SERVICE_URL=http://localhost:8000
 
 # Ollama Cloud (AI model provider)
-# Model is locked to gemini-3-flash-preview
+# Model is locked to gemini-3-flash-preview (not configurable)
 OLLAMA_CLOUD_API_KEY=your-key
 OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
 
 # LLM settings
 LLM_TIMEOUT=120
 
-# Production domain (used by Caddy for HTTPS)
-DOMAIN=localhost
+# Production (Oracle Cloud)
+DOMAIN=your-domain.com
 
 # Storage paths
 DATABASE_PATH=./data/databases
@@ -473,11 +468,12 @@ data-ruler/
 │       └── models/                 # Pydantic schemas (15+ models)
 │
 ├── data/                           # Runtime data (gitignored)
-├── Caddyfile                       # Caddy reverse proxy config (HTTPS)
-├── docker-compose.yml              # Docker Compose (local + base)
-├── docker-compose.prod.yml         # Production override (adds Caddy HTTPS)
-├── deploy.sh                       # Deploy script (local or prod)
-├── setup-oracle.sh                 # Oracle Cloud VM one-time setup
+├── scripts/                        # Utility scripts (screenshot generation)
+├── Caddyfile                       # Caddy reverse proxy (HTTPS, production)
+├── docker-compose.yml              # Docker Compose (base, local dev + production)
+├── docker-compose.prod.yml         # Production overlay (adds Caddy for HTTPS)
+├── deploy.sh                       # Deploy with auto-detect dev/prod mode
+├── setup-oracle.sh                 # Oracle Cloud VM initial setup
 ├── start.sh                        # Local startup (no Docker)
 └── .env.example                    # Configuration template
 ```

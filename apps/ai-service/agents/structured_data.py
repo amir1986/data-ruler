@@ -12,6 +12,82 @@ from models.schemas import AgentMessage
 
 logger = logging.getLogger(__name__)
 
+MAX_ROWS = 50_000
+MAX_FLATTEN_DEPTH = 5
+
+
+def _flatten_dict(obj: dict, prefix: str = "", sep: str = ".", depth: int = 0) -> dict:
+    """Recursively flatten a nested dict using dot-notation keys."""
+    items: dict[str, Any] = {}
+    for key, val in obj.items():
+        new_key = f"{prefix}{sep}{key}" if prefix else key
+        if isinstance(val, dict) and depth < MAX_FLATTEN_DEPTH:
+            items.update(_flatten_dict(val, new_key, sep, depth + 1))
+        elif isinstance(val, list) and val and isinstance(val[0], dict) and depth < MAX_FLATTEN_DEPTH:
+            # Store complex nested arrays as JSON strings
+            items[new_key] = json.dumps(val, default=str, ensure_ascii=False)
+        else:
+            items[new_key] = val
+    return items
+
+
+def _find_data_array(obj: dict) -> list[dict] | None:
+    """Find the largest array of dicts inside a wrapper object.
+
+    Handles patterns like {"data": [...], "meta": {...}} or
+    {"results": [...], "count": 42}.
+    """
+    best: list | None = None
+    best_len = 0
+    for val in obj.values():
+        if isinstance(val, list) and len(val) > best_len:
+            if val and isinstance(val[0], dict):
+                best = val
+                best_len = len(val)
+    return best
+
+
+def _to_columnar(records: list[dict], fmt: str) -> dict[str, Any]:
+    """Convert a list of (possibly nested) dicts to {columns, rows} format."""
+    if not records:
+        return {"columns": [], "rows": [], "row_count": 0, "format": fmt}
+
+    # Flatten each record
+    flat = [_flatten_dict(r) if isinstance(r, dict) else {"value": r} for r in records[:MAX_ROWS]]
+
+    # Collect union of all keys (preserving insertion order)
+    seen: dict[str, None] = {}
+    for row in flat:
+        for k in row:
+            seen.setdefault(k, None)
+    columns = list(seen)
+
+    # Normalise each row to have all columns
+    rows = [{c: row.get(c) for c in columns} for row in flat]
+
+    return {"columns": columns, "rows": rows, "row_count": len(rows), "format": fmt}
+
+
+def _structurize(data: Any, fmt: str) -> dict[str, Any]:
+    """Route arbitrary parsed data to the right flattening strategy."""
+    # List of dicts — most common tabular case
+    if isinstance(data, list):
+        if data and isinstance(data[0], dict):
+            return _to_columnar(data, fmt)
+        # List of scalars
+        return _to_columnar([{"value": v} for v in data], fmt)
+
+    # Dict — look for a wrapped array first
+    if isinstance(data, dict):
+        arr = _find_data_array(data)
+        if arr:
+            return _to_columnar(arr, fmt)
+        # Single dict — flatten to one row
+        return _to_columnar([data], fmt)
+
+    # Scalar
+    return {"columns": ["value"], "rows": [{"value": data}], "row_count": 1, "format": fmt}
+
 
 class StructuredDataAgent(AgentBase):
     def __init__(self) -> None:
@@ -54,23 +130,19 @@ class StructuredDataAgent(AgentBase):
                 records = [json.loads(line) for line in f if line.strip()]
             else:
                 data = json.load(f)
-                records = data if isinstance(data, list) else [data]
+                return _structurize(data, fmt)
 
-        if records and isinstance(records[0], dict):
-            columns = list(records[0].keys())
-            rows = records
-        else:
-            columns = ["value"]
-            rows = [{"value": str(r)} for r in records]
-
-        return {"columns": columns, "rows": rows[:50000], "row_count": len(rows), "format": fmt}
+        return _structurize(records, fmt)
 
     def _parse_xml(self, path: str) -> dict[str, Any]:
         try:
             import xmltodict
             with open(path, "r", encoding="utf-8") as f:
                 data = xmltodict.parse(f.read())
-            return {"data": data, "format": "xml", "columns": [], "rows": []}
+            # xmltodict wraps in a root element — unwrap one level
+            if isinstance(data, dict) and len(data) == 1:
+                data = next(iter(data.values()))
+            return _structurize(data, "xml")
         except ImportError:
             return {"error": "xmltodict not installed"}
 
@@ -79,9 +151,7 @@ class StructuredDataAgent(AgentBase):
             import yaml
             with open(path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
-            if isinstance(data, list) and data and isinstance(data[0], dict):
-                return {"columns": list(data[0].keys()), "rows": data, "row_count": len(data), "format": "yaml"}
-            return {"data": data, "format": "yaml", "columns": [], "rows": []}
+            return _structurize(data, "yaml")
         except ImportError:
             return {"error": "pyyaml not installed"}
 
@@ -90,6 +160,6 @@ class StructuredDataAgent(AgentBase):
             import toml as toml_lib
             with open(path, "r", encoding="utf-8") as f:
                 data = toml_lib.load(f)
-            return {"data": data, "format": "toml", "columns": [], "rows": []}
+            return _structurize(data, "toml")
         except ImportError:
             return {"error": "toml not installed"}

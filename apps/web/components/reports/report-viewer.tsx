@@ -47,22 +47,36 @@ interface ReportContent {
     size: number;
     size_formatted: string;
     rows: number | null;
+    reported_rows?: number | null;
     columns: number | null;
+    actual_columns?: string[];
     quality: number | null;
     status: string;
     ai_summary: string | null;
     created_at: string;
+    verified?: boolean;
+    sheets?: { name: string; rows: number; columns: number }[];
   }[];
+  // Data verification
+  data_verification?: {
+    verified: boolean;
+    verified_at: string;
+    files_verified: number;
+    files_total: number;
+    discrepancies: { file: string; field: string; reported: string | number | null; actual: string | number | null }[];
+    all_accurate: boolean;
+  };
   // Template-specific
   quality_breakdown?: { name: string; quality: number }[];
-  schema_table?: { name: string; type: string; columns: number | null; rows: number | null; size: string; quality: number | null }[];
+  schema_table?: { name: string; type: string; columns: number | null; rows: number | null; size: string; quality: number | null; column_names?: string[]; sheets?: number }[];
   size_distribution?: { name: string; size: number; size_formatted: string }[];
-  category_breakdown?: { category: string; count: number; size: string }[];
+  category_breakdown?: { category: string; count: number; size: string; rows?: number }[];
   activity_stats?: { total_ingested: number; total_processed: number; total_errors: number; total_pending: number };
   comparison_table?: { name: string; type: string; category: string; size: string; size_bytes: number; rows: number | null; columns: number | null; quality: number | null; status: string }[];
+  shared_columns?: string[];
   rankings?: { by_size: string[]; by_quality: string[] };
   ai_insights?: { name: string; insight: string }[];
-  file_snapshot?: { name: string; type: string; category: string; size: string; rows: number | null; columns: number | null; quality: number | null; status: string } | null;
+  file_snapshot?: { name: string; type: string; category: string; size: string; rows: number | null; columns: number | null; column_names?: string[]; quality: number | null; status: string } | null;
 }
 
 const templateThemes: Record<string, { accent: string; bg: string; border: string; icon: typeof FileText; label: string }> = {
@@ -191,8 +205,8 @@ function ExecutiveSummaryView({ content, theme }: { content: ReportContent; them
         <div>
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">Data Sources</h3>
           <DataTable
-            headers={['File', 'Type', 'Size', 'Rows', 'Quality', 'Status']}
-            rows={content.files.map(f => [f.name, f.type, f.size_formatted, f.rows?.toLocaleString() ?? null, f.quality !== null ? `${f.quality}%` : null, f.status])}
+            headers={['File', 'Type', 'Size', 'Rows', 'Quality', 'Status', 'Verified']}
+            rows={content.files.map(f => [f.name, f.type, f.size_formatted, f.rows?.toLocaleString() ?? null, f.quality !== null ? `${f.quality}%` : null, f.status, f.verified ? '✓' : '—'])}
           />
         </div>
       )}
@@ -503,6 +517,38 @@ export default function ReportViewer({ report }: { report: Report }) {
           Generated {safeDate(content.generated_at)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? '—'}
         </span>
       </div>
+
+      {/* Data Verification Badge */}
+      {content.data_verification && (
+        <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+          content.data_verification.all_accurate
+            ? 'border-green-500/30 bg-green-500/10'
+            : 'border-yellow-500/30 bg-yellow-500/10'
+        }`}>
+          {content.data_verification.all_accurate ? (
+            <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-yellow-400 shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-medium ${content.data_verification.all_accurate ? 'text-green-300' : 'text-yellow-300'}`}>
+              {content.data_verification.all_accurate
+                ? `All data verified — ${content.data_verification.files_verified}/${content.data_verification.files_total} files checked against actual data`
+                : `${content.data_verification.discrepancies.length} discrepanc${content.data_verification.discrepancies.length === 1 ? 'y' : 'ies'} found in ${content.data_verification.files_verified} verified files`
+              }
+            </p>
+            {content.data_verification.discrepancies.length > 0 && (
+              <div className="mt-1 space-y-0.5">
+                {content.data_verification.discrepancies.map((d, i) => (
+                  <p key={i} className="text-xs text-yellow-400/80">
+                    {d.file}: {d.field} — reported {d.reported ?? 'N/A'}, actual {d.actual ?? 'N/A'}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Template-specific view */}
       {content.template === 'executive_summary' && <ExecutiveSummaryView content={content} theme={theme} />}

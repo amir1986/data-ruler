@@ -5,7 +5,7 @@ Go from zero to running in 5 steps.
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose installed
-- An Ollama Cloud API key (remote Ollama instance)
+- An [Ollama Cloud](https://ollama.com/) API key (remote Ollama instance)
 
 ## Steps
 
@@ -70,17 +70,16 @@ docker compose down
 # Press Ctrl+C in the terminal running start.sh
 ```
 
-## Deploying to Production (Oracle Cloud)
+## Deploying to Production (Oracle Cloud, Free)
 
-DataRuler is designed to run on **Oracle Cloud Always-Free Tier** — 4 ARM CPUs, 24GB RAM, 200GB disk, forever free.
+1. Run `./setup-oracle.sh` on your Oracle Cloud VM to install Docker and open firewall ports
+2. Clone this repo, then `cp .env.example .env`
+3. Set a strong `NEXTAUTH_SECRET` (run: `openssl rand -base64 32`)
+4. Set `NEXTAUTH_URL=https://yourdomain.com`
+5. Set `DOMAIN=yourdomain.com` and `OLLAMA_CLOUD_API_KEY` in `.env`
+6. Run `./deploy.sh` (auto-detects production mode when DOMAIN is set)
 
-1. Set a strong `NEXTAUTH_SECRET` in `.env`
-2. Set `NEXTAUTH_URL=https://yourdomain.com`
-3. Set `DOMAIN=yourdomain.com` in `.env`
-4. Point your domain's DNS A record to your Oracle VM's IP
-5. Run `./deploy.sh prod` (uses Caddy for automatic HTTPS)
-
-See `README.md` for the full step-by-step Oracle Cloud deployment guide.
+See [README.md](README.md) for full Oracle Cloud setup instructions.
 
 ## Troubleshooting
 

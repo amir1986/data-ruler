@@ -32,18 +32,39 @@ def get_catalog_db():
     return conn
 
 
+def _sql_escape_ident(name: str) -> str:
+    """Escape a column/table name for use inside SQLite double-quoted identifiers."""
+    return name.replace('"', '""')
+
+
 async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, original_name: str):
     """Run the full processing pipeline for a file."""
     conn = get_catalog_db()
+    log_entries: list[dict] = []
+
+    def _log(stage: str, status: str, detail: str | None = None):
+        entry = {"stage": stage, "status": status, "ts": datetime.utcnow().isoformat()}
+        if detail:
+            entry["detail"] = detail
+        log_entries.append(entry)
+        conn.execute(
+            "UPDATE files SET processing_log = ? WHERE id = ?",
+            (json.dumps(log_entries), file_id),
+        )
+        conn.commit()
+
     try:
         # Update status to processing
         conn.execute(
             "UPDATE files SET processing_status = 'processing' WHERE id = ?",
             (file_id,)
         )
+        # Clean up old imported_tables entries (supports reprocessing)
+        conn.execute("DELETE FROM imported_tables WHERE file_id = ?", (file_id,))
         conn.commit()
 
         # Stage 1: File detection
+        _log("detection", "running")
         from agents.file_detection import FileDetectionAgent
         detector = FileDetectionAgent()
         detection_result = await detector.detect(file_path, original_name)
@@ -59,8 +80,10 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
             (file_type, file_category, mime_type, file_id)
         )
         conn.commit()
+        _log("detection", "done", f"{file_category}/{file_type}")
 
         # Stage 2: Process based on category
+        _log("parsing", "running")
         result = {}
         if file_category in ("tabular", "spreadsheet"):
             from agents.tabular_processor import TabularProcessorAgent
@@ -78,6 +101,12 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
             from agents.database_importer import DatabaseImporterAgent
             processor = DatabaseImporterAgent()
             result = await processor.process_file(file_path, file_type)
+
+        # Check if the processor returned an error
+        if result.get("error"):
+            raise RuntimeError(f"Processor error ({file_category}): {result['error']}")
+
+        _log("parsing", "done")
 
         # ── Collect sheet data ─────────────────────────────────────
         # Normalise results from ANY processor into a uniform list of
@@ -110,6 +139,7 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
             sheets = []
 
         # ── Stage 3: Schema inference (per-sheet) ────────────────
+        _log("schema_inference", "running", f"{len(sheets)} sheet(s)")
         if sheets:
             from agents.schema_inference import SchemaInferenceAgent
             schema_agent = SchemaInferenceAgent()
@@ -171,7 +201,10 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
                 (file_id,)
             )
 
+        _log("schema_inference", "done")
+
         # ── Stage 4: Store data in user's database (all sheets) ──
+        _log("storage", "running")
         if sheets:
             user_db_path = os.path.join(DATABASE_PATH, user_id, "user_data.db")
             os.makedirs(os.path.dirname(user_db_path), exist_ok=True)
@@ -184,9 +217,13 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
                 table_name = base_table if idx == 0 else f"{base_table}__s{idx}"
                 sheet_table_map[sheet_name or f"Sheet{idx + 1}"] = table_name
 
-                col_defs = ", ".join(f'"{c}" TEXT' for c in columns)
+                # Drop existing table to prevent duplicate rows on reprocessing
+                user_conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+                col_defs = ", ".join(
+                    f'"{_sql_escape_ident(c)}" TEXT' for c in columns
+                )
                 user_conn.execute(
-                    f'CREATE TABLE IF NOT EXISTS "{table_name}" ({col_defs})'
+                    f'CREATE TABLE "{table_name}" ({col_defs})'
                 )
 
                 placeholders = ", ".join(["?"] * len(columns))
@@ -220,11 +257,39 @@ async def run_processing_pipeline(file_id: str, user_id: str, file_path: str, or
                 (db_table_value, user_db_path, file_id)
             )
 
+            # Populate imported_tables with per-sheet metadata
+            for idx, (sheet_name, columns, rows) in enumerate(sheets):
+                storage_tbl = base_table if idx == 0 else f"{base_table}__s{idx}"
+                display_name = sheet_name or f"Sheet{idx + 1}"
+
+                # Extract schema for this sheet only
+                if sheet_name and combined_schema:
+                    sheet_schema = [c for c in combined_schema if c.get("sheet") == sheet_name]
+                elif len(sheets) == 1:
+                    sheet_schema = combined_schema
+                else:
+                    sheet_schema = []
+
+                conn.execute(
+                    """INSERT INTO imported_tables
+                       (id, file_id, table_name, schema_snapshot, row_count, storage_table_name)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (uuid4().hex, file_id, display_name, json.dumps(sheet_schema), len(rows), storage_tbl)
+                )
+
+            sheet_detail = ", ".join(
+                f"{sn or f'Sheet{i+1}'}({len(r)} rows)"
+                for i, (sn, _, r) in enumerate(sheets)
+            )
+            logger.info(f"Stored {len(sheets)} sheet(s) for file {file_id}: {sheet_detail}")
+
         conn.commit()
+        _log("storage", "done")
         logger.info(f"Processing complete for file {file_id}")
 
     except Exception as e:
         logger.error(f"Processing failed for file {file_id}: {e}")
+        _log("pipeline", "error", str(e))
         conn.execute(
             "UPDATE files SET processing_status = 'error', processing_error = ? WHERE id = ?",
             (str(e), file_id)
@@ -279,6 +344,34 @@ async def upload_and_process(
         original_name,
     )
     return {"status": "processing", "file_id": file_id}
+
+
+@router.post("/extract-text")
+async def extract_text(
+    file: UploadFile = File(...),
+    original_name: str = Form(""),
+):
+    """Extract text content from a document file (PDF, DOCX, TXT, etc.)."""
+    import tempfile
+    ext = os.path.splitext(original_name or file.filename or "")[1].lower()
+    content = await file.read()
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        from agents.document_processor import DocumentProcessorAgent
+        processor = DocumentProcessorAgent()
+        result = await processor.process_file(tmp_path)
+        return {
+            "text": result.get("text", ""),
+            "pages": result.get("pages", []),
+            "page_count": result.get("page_count", 0),
+            "char_count": result.get("char_count", 0),
+        }
+    finally:
+        os.unlink(tmp_path)
 
 
 @router.get("/status/{file_id}")

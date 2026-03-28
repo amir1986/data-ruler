@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Trigger AI service processing for each file.
-    // Send file bytes so it works with separate storage (Fly.io).
+    // Send file bytes so it works with separate storage.
     let triggered = 0;
     for (const file of files) {
       try {

@@ -8,9 +8,8 @@ if [ ! -f .env ]; then
   echo "No .env file found. Copying from .env.example..."
   cp .env.example .env
   echo "IMPORTANT: Edit .env and add at least one API key:"
-  echo "  - GROQ_API_KEY     (free: https://console.groq.com/keys)"
-  echo "  - OPENROUTER_API_KEY (free: https://openrouter.ai/keys)"
-  echo "  - HF_API_TOKEN     (free: https://huggingface.co/settings/tokens)"
+  echo "  - GROQ_API_KEY          (free: https://console.groq.com/keys)"
+  echo "  - OLLAMA_CLOUD_API_KEY  (Ollama Cloud instance)"
   echo ""
 fi
 

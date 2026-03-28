@@ -7,29 +7,33 @@
 # =============================================================================
 set -e
 
+# Check .env
+if [ ! -f .env ]; then
+  echo "ERROR: .env file not found. Copy from .env.example first:"
+  echo "  cp .env.example .env"
+  exit 1
+fi
+
+# Check Docker
+if ! command -v docker &>/dev/null; then
+  echo "ERROR: Docker is not installed. Run setup-oracle.sh first."
+  exit 1
+fi
+
 GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
 BUILD_TIME=$(date '+%Y-%m-%d %H:%M')
 export BUILD_VERSION="v${GIT_HASH} | ${BUILD_TIME}"
 
-# Check .env
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "Created .env from .env.example — edit it before deploying."
-  echo "  nano .env"
-  exit 1
+echo "Deploying: ${BUILD_VERSION}"
+
+# Use production overlay if DOMAIN is configured
+DOMAIN=$(grep -E '^DOMAIN=' .env 2>/dev/null | cut -d= -f2 | tr -d ' "'"'"'')
+if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "your-domain.com" ] && [ "$DOMAIN" != "localhost" ] && [ -f docker-compose.prod.yml ]; then
+  echo "Production mode: HTTPS via Caddy for ${DOMAIN}"
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d "$@"
+else
+  echo "Development mode: http://localhost:3000"
+  docker compose up --build -d "$@"
 fi
 
-if [ "$1" = "prod" ]; then
-  echo "Deploying PRODUCTION: ${BUILD_VERSION}"
-  echo "  Caddy HTTPS reverse proxy enabled"
-  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d "$@"
-  echo ""
-  echo "Deploy complete: ${BUILD_VERSION}"
-  echo "Your app is live at https://$(grep '^DOMAIN=' .env | cut -d= -f2)"
-else
-  echo "Deploying LOCAL: ${BUILD_VERSION}"
-  docker compose up --build -d "$@"
-  echo ""
-  echo "Deploy complete: ${BUILD_VERSION}"
-  echo "Open http://localhost:3000"
-fi
+echo "Deploy complete: ${BUILD_VERSION}"

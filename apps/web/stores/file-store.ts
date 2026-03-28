@@ -52,6 +52,9 @@ interface FileState {
   uploadFiles: (files: File[]) => Promise<void>;
   deleteFile: (id: string) => Promise<void>;
   updateFileMeta: (id: string, updates: { original_name?: string; tags?: string[]; folder_path?: string }) => Promise<void>;
+  fetchFilePreview: (fileId: string, sheetName?: string) => Promise<Record<string, unknown> | null>;
+  exportFile: (fileId: string, format: string, sheetName?: string) => Promise<Record<string, unknown> | null>;
+  reprocessFile: (fileId: string) => Promise<boolean>;
 }
 
 export const useFileStore = create<FileState>((set, get) => ({
@@ -139,5 +142,37 @@ export const useFileStore = create<FileState>((set, get) => ({
       const data = await res.json();
       get().updateFile(id, data.file);
     }
+  },
+
+  fetchFilePreview: async (fileId, sheetName) => {
+    try {
+      const params = sheetName ? `?sheet=${encodeURIComponent(sheetName)}` : '';
+      const res = await fetch(`/api/files/${fileId}/preview${params}`);
+      if (res.ok) return await res.json();
+    } catch { /* ignore */ }
+    return null;
+  },
+
+  exportFile: async (fileId, format, sheetName) => {
+    try {
+      const res = await fetch('/api/export/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId, format, sheetName }),
+      });
+      if (res.ok) return await res.json();
+    } catch { /* ignore */ }
+    return null;
+  },
+
+  reprocessFile: async (fileId) => {
+    try {
+      const res = await fetch('/api/processing/reprocess', { method: 'POST' });
+      if (res.ok) {
+        get().updateFile(fileId, { processing_status: 'pending', processing_error: null });
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
   },
 }));
