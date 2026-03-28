@@ -2,7 +2,7 @@
 
 A self-hosted, AI-powered data management and analytics platform. Upload any file type, get automatic processing, interactive dashboards, AI-generated reports, and chat with an AI assistant that understands your data.
 
-Deployed on **Oracle Cloud Always-Free Tier** — 4 ARM CPUs, 24GB RAM, 200GB disk, forever free. Uses **Ollama Cloud** for AI inference — no local GPU required.
+Deployed on **Oracle Cloud Always-Free Tier** — up to 4 ARM OCPUs, 24GB RAM, 200GB block storage, no expiration, no charge. Uses **Ollama Cloud** for AI inference — no local GPU required.
 
 ## Features
 
@@ -46,7 +46,12 @@ Open http://localhost:3000 and create an account.
 
 ## Deploy to Oracle Cloud Always-Free Tier ($0 Forever)
 
-Oracle Cloud offers an **always-free** ARM VM with 4 CPUs, 24GB RAM, and 200GB disk — permanently, no time limit. You run Docker Compose on the VM with Caddy for automatic HTTPS.
+Oracle Cloud offers **Always Free** resources with no expiration and no charge. The Ampere A1 ARM allocation gives you up to 4 OCPUs and 24GB RAM (in 1 VM or split across up to 4 VMs), plus 200GB block storage. You run Docker Compose on the VM with Caddy for automatic HTTPS.
+
+> **Important constraints:**
+> - Keep A1 instances at or below **4 OCPUs + 24GB RAM total** to avoid deletion when trial credits expire
+> - **Idle instances** (under 20% CPU for 7 consecutive days) may be reclaimed by Oracle
+> - All Always Free resources must be provisioned in your **home region** (selected during signup)
 
 ### Step 1 — Create a free Oracle Cloud account
 
@@ -123,16 +128,23 @@ The `Caddyfile` uses the `DOMAIN` env var from `.env` automatically. No manual e
 
 Your app is live at `https://yourdomain.com` with automatic HTTPS, 24GB RAM, persistent storage, and no usage limits.
 
-### What you get for free, forever
+### Oracle Cloud Always Free Resources (no expiration, no charge)
 
-| Resource | Amount |
-|----------|--------|
-| CPUs | 4 ARM (Ampere A1) |
-| RAM | 24 GB |
-| Boot Volume | 200 GB |
-| Outbound Data | 10 TB/month |
-| Sleep/Cold Starts | None — always running |
-| Time Limit | None — permanent |
+| Category | Resource | Amount |
+|----------|----------|--------|
+| **Compute** | Ampere A1 ARM VM | Up to 4 OCPUs + 24GB RAM (1 VM or split across up to 4) |
+| **Compute** | AMD E2.1.Micro VMs | 2 VMs with 1/8 OCPU + 1GB RAM each (alternative) |
+| **Storage** | Block Volume | 200 GB + 5 backups |
+| **Storage** | Object Storage | 20 GB |
+| **Storage** | Archive Storage | 10 GB |
+| **Networking** | VCNs | 2 |
+| **Networking** | Reserved Public IP | 1 |
+| **Networking** | Ephemeral IPs | 2 |
+| **Networking** | Load Balancer | 1 (10 Mbps) |
+| **Networking** | Outbound Data | 10 TB/month |
+| **Database** | Autonomous Database | 2 (20 GB each) |
+
+> **Constraints:** Keep A1 total at or below 4 OCPUs + 24GB RAM. Idle instances (< 20% CPU for 7 days) may be reclaimed. All resources must be in your home region.
 
 ## Environment Variables
 
